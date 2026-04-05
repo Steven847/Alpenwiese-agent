@@ -101,12 +101,15 @@ export default function Dashboard() {
         background: `linear-gradient(135deg, ${C.forest}, ${C.meadow})`,
         padding: "20px", borderRadius: "0 0 24px 24px",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16, background: "#fff",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 28, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
-          }}>🏔️</div>
+     <div style={{
+            width: 64, height: 64, borderRadius: 16, background: "#fff",
+            padding: 4, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+            flexShrink: 0,
+          }}>
+            <img src="/alpenwiese-logo.jpeg" alt="Alpenwiese" style={{
+              width: "100%", height: "100%", objectFit: "contain", borderRadius: 12,
+            }} />
+          </div>
           <div>
             <h1 style={{
               margin: 0, fontSize: 24, color: "#fff",
