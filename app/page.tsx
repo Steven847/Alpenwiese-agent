@@ -69,12 +69,12 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "publish_image",
-          imageUrl: imagePreview, // In production: hosted URL
+          imageUrl: imagePreview,
           caption: result,
         }),
       });
       const data = await res.json();
-      setStatus(data.success ? "Erfolgreich gepostet! 🎉" : "Fehler: " + data.error);
+      setStatus(data.success ? "Erfolgreich gepostet!" : "Fehler: " + data.error);
     } catch (e: any) {
       setStatus("Fehler: " + e.message);
     }
@@ -101,7 +101,8 @@ export default function Dashboard() {
         background: `linear-gradient(135deg, ${C.forest}, ${C.meadow})`,
         padding: "20px", borderRadius: "0 0 24px 24px",
       }}>
-     <div style={{
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{
             width: 64, height: 64, borderRadius: 16, background: "#fff",
             padding: 4, boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
             flexShrink: 0,
@@ -122,7 +123,7 @@ export default function Dashboard() {
           </div>
         </div>
         <p style={{ margin: "12px 0 0", fontSize: 12, color: "#fffc" }}>
-          🤖 Echte API-Anbindung — Gemini + Meta + Autopilot
+          KI-gesteuert: Gemini + Meta + Autopilot
         </p>
       </div>
 
@@ -141,6 +142,7 @@ export default function Dashboard() {
             fontWeight: activeTab === t.id ? 700 : 500,
             fontSize: 12, borderRadius: "8px 8px 0 0", whiteSpace: "nowrap",
             display: "flex", alignItems: "center", gap: 4,
+            fontFamily: "'DM Sans', sans-serif",
           }}>
             <span style={{ fontSize: 15 }}>{t.icon}</span> {t.label}
           </button>
@@ -210,6 +212,7 @@ export default function Dashboard() {
                 style={{
                   width: "100%", padding: "10px 14px", borderRadius: 12, marginTop: 8,
                   border: `1px solid ${C.alpine}44`, fontSize: 14, background: C.snow,
+                  boxSizing: "border-box",
                 }}
               />
             </div>
@@ -222,11 +225,11 @@ export default function Dashboard() {
                 color: "#fff", fontSize: 15, fontWeight: 700, cursor: loading ? "wait" : "pointer",
                 boxShadow: `0 4px 12px ${C.forest}44`, minWidth: 200,
               }}>
-                {loading ? "⏳ Generiert..." : "🌿 Caption generieren"}
+                {loading ? "Generiert..." : "🌿 Caption generieren"}
               </button>
               <button onClick={generateImage} disabled={loading} style={{
                 padding: "14px 20px", borderRadius: 12, border: "none",
-                background: `linear-gradient(135deg, #FF9800, #F57C00)`,
+                background: "linear-gradient(135deg, #FF9800, #F57C00)",
                 color: "#fff", fontSize: 14, fontWeight: 700, cursor: loading ? "wait" : "pointer",
               }}>
                 📸 Bild (Nano Banana 2)
@@ -262,21 +265,21 @@ export default function Dashboard() {
                 background: `linear-gradient(135deg, ${C.snow}, #fff)`,
                 border: `1px solid ${C.alpine}44`,
               }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 6 }}>
                   <span style={{
                     padding: "3px 10px", borderRadius: 20, fontSize: 11,
                     fontWeight: 600, background: C.gold + "44", color: C.forest,
-                  }}>✨ Generiert</span>
+                  }}>Generiert</span>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => navigator.clipboard?.writeText(result)} style={{
                       padding: "4px 12px", borderRadius: 8, border: `1px solid ${C.alpine}`,
                       background: "#fff", fontSize: 11, cursor: "pointer", color: C.forest,
-                    }}>📋 Kopieren</button>
+                    }}>Kopieren</button>
                     <button onClick={publishToInstagram} style={{
                       padding: "4px 12px", borderRadius: 8, border: "none",
-                      background: `linear-gradient(135deg, #E1306C, #C13584)`,
+                      background: "linear-gradient(135deg, #E1306C, #C13584)",
                       fontSize: 11, cursor: "pointer", color: "#fff", fontWeight: 700,
-                    }}>📱 Auf Instagram posten</button>
+                    }}>Auf Instagram posten</button>
                   </div>
                 </div>
                 <pre style={{
@@ -307,15 +310,22 @@ export default function Dashboard() {
               style={{
                 width: "100%", padding: 12, borderRadius: 12,
                 border: `1px solid ${C.alpine}44`, fontSize: 14, marginBottom: 12,
+                boxSizing: "border-box",
               }}
             />
             <button onClick={generateImage} disabled={loading} style={{
               width: "100%", padding: 14, borderRadius: 12, border: "none",
-              background: `linear-gradient(135deg, #FF9800, #F57C00)`,
+              background: "linear-gradient(135deg, #FF9800, #F57C00)",
               color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
             }}>
-              {loading ? "⏳ Nano Banana 2 generiert..." : "📸 Bild generieren"}
+              {loading ? "Nano Banana 2 generiert..." : "📸 Bild generieren"}
             </button>
+            {status && (
+              <div style={{ marginTop: 12, padding: 10, borderRadius: 10,
+                background: C.snow, fontSize: 12, color: C.forest }}>
+                {status}
+              </div>
+            )}
             {imagePreview && (
               <img src={imagePreview} alt="Generated" style={{
                 width: "100%", marginTop: 16, borderRadius: 12,
@@ -342,6 +352,7 @@ export default function Dashboard() {
               style={{
                 width: "100%", padding: 12, borderRadius: 12,
                 border: `1px solid ${C.alpine}44`, fontSize: 14, marginBottom: 12,
+                boxSizing: "border-box",
               }}
             />
             <button onClick={async () => {
@@ -359,10 +370,10 @@ export default function Dashboard() {
               setLoading(false);
             }} disabled={loading} style={{
               width: "100%", padding: 14, borderRadius: 12, border: "none",
-              background: `linear-gradient(135deg, #9C27B0, #7B1FA2)`,
+              background: "linear-gradient(135deg, #9C27B0, #7B1FA2)",
               color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
             }}>
-              {loading ? "⏳ Veo generiert..." : "🎬 Reel generieren"}
+              {loading ? "Veo generiert..." : "🎬 Reel generieren"}
             </button>
             {status && (
               <div style={{ marginTop: 12, padding: 10, borderRadius: 10,
@@ -384,7 +395,7 @@ export default function Dashboard() {
               🤖 Autopilot
             </h2>
             <p style={{ fontSize: 12, color: C.stone, margin: "0 0 16px" }}>
-              Der Autopilot läuft als Cron-Job auf Vercel — alle 30 Minuten.
+              Der Autopilot läuft als Cron-Job auf Vercel (1x täglich um 12:00).
               Er sucht automatisch nach Cannabis-, Brokkoli- und Gemüse-Posts und kommentiert on-brand.
             </p>
             <div style={{
@@ -392,28 +403,30 @@ export default function Dashboard() {
               border: `1px solid ${C.alpine}33`,
             }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.forest, marginBottom: 8 }}>
-                ⚙️ Status: Aktiv auf Vercel (Cron alle 30 Min)
+                Status: Aktiv auf Vercel
               </div>
               <div style={{ fontSize: 12, color: C.stone }}>
-                Keywords überwacht: Cannabis ({7}), Brokkoli ({5}), Gemüse ({9}), Lidl ({3})
+                Keywords: Cannabis (9), Brokkoli (5), Gemüse (9), Lidl (3)
               </div>
             </div>
             <button onClick={async () => {
+              const secret = window.prompt("CRON_SECRET eingeben:");
+              if (!secret) return;
               setStatus("Manueller Autopilot-Run...");
               try {
                 const res = await fetch("/api/cron", {
-                  headers: { Authorization: `Bearer ${prompt("CRON_SECRET eingeben:")}` },
+                  headers: { Authorization: `Bearer ${secret}` },
                 });
                 const data = await res.json();
                 setResult(JSON.stringify(data, null, 2));
-                setStatus(`${data.actions || 0} Aktionen durchgeführt`);
+                setStatus(`${data.actions || 0} Aktionen ausgefuehrt`);
               } catch (e: any) { setStatus("Fehler: " + e.message); }
             }} style={{
               marginTop: 12, width: "100%", padding: 14, borderRadius: 12,
               border: "none", background: `linear-gradient(135deg, ${C.forest}, ${C.meadow})`,
               color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
             }}>
-              ▶ Jetzt manuell ausführen
+              Jetzt manuell ausführen
             </button>
             {status && <div style={{ marginTop: 10, fontSize: 12, color: C.forest }}>{status}</div>}
             {result && activeTab === "autopilot" && (
@@ -464,8 +477,8 @@ export default function Dashboard() {
 
       {/* Footer */}
       <div style={{ padding: "20px 16px 30px", textAlign: "center", fontSize: 11, color: C.alpine }}>
-        🏔️ Alpenwiese Social Media Agent v1.0 💙🥦
-        <br />Echte API-Anbindung: Gemini + Meta + Autopilot
+        Alpenwiese Social Media Agent v1.0
+        <br />Gemini + Meta + Autopilot
       </div>
     </div>
   );
