@@ -1,4 +1,5 @@
 // lib/gemini.ts — Google Gemini API Integration (Images + Videos)
+// CORRECTED: Uses proper model names and imageConfig parameters
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -14,7 +15,7 @@ export async function generateImage(prompt: string, options?: {
   aspectRatio?: "1:1" | "9:16" | "16:9" | "4:3" | "3:4";
 }) {
   const apiKey = getApiKey();
-  const model = "gemini-2.0-flash-exp"; // Nano Banana 2
+  const model = "gemini-3.1-flash-image-preview";
 
   const res = await fetch(
     `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
@@ -29,8 +30,6 @@ export async function generateImage(prompt: string, options?: {
                 text: `Generate an image: ${prompt}. 
                 Style: Professional, clean, Swiss Alpine aesthetic. 
                 Brand colors: deep forest green, meadow green, white, gold accents.
-                ${options?.aspectRatio === "9:16" ? "Portrait orientation for Instagram Reels/Stories." : ""}
-                ${options?.aspectRatio === "1:1" ? "Square format for Instagram feed." : ""}
                 Do NOT include any cannabis leaves, smoking imagery, or drug references.
                 Focus on: Alpine landscapes, clean medical aesthetics, nature, Swiss quality.`,
               },
@@ -38,9 +37,11 @@ export async function generateImage(prompt: string, options?: {
           },
         ],
         generationConfig: {
-          responseModalities: ["IMAGE", "TEXT"],
-          imageSizes: options?.aspectRatio === "9:16" ? "PORTRAIT" : 
-                      options?.aspectRatio === "1:1" ? "SQUARE" : "LANDSCAPE",
+          responseModalities: ["TEXT", "IMAGE"],
+          imageConfig: {
+            aspectRatio: options?.aspectRatio || "1:1",
+            imageSize: "1K",
+          },
         },
       }),
     }
@@ -48,13 +49,21 @@ export async function generateImage(prompt: string, options?: {
 
   const data = await res.json();
 
+  if (data.error) {
+    throw new Error(`Gemini API error: ${data.error.message}`);
+  }
+
   // Extract image from response
-  const imagePart = data.candidates?.[0]?.content?.parts?.find(
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const imagePart = parts.find(
     (p: any) => p.inlineData?.mimeType?.startsWith("image/")
   );
 
   if (!imagePart) {
-    throw new Error("No image generated. Response: " + JSON.stringify(data));
+    const textPart = parts.find((p: any) => p.text);
+    throw new Error(
+      "No image generated." + (textPart ? ` Model said: ${textPart.text.slice(0, 200)}` : "")
+    );
   }
 
   return {
@@ -69,13 +78,11 @@ export async function generateVideo(prompt: string, options?: {
   model?: "veo-2.0-generate-001" | "veo-3.1-generate-preview";
   aspectRatio?: "16:9" | "9:16";
   durationSeconds?: 4 | 6 | 8;
-  imageBase64?: string;
-  imageMimeType?: string;
 }) {
   const apiKey = getApiKey();
   const model = options?.model || "veo-2.0-generate-001";
 
-  const requestBody: any = {
+  const requestBody = {
     instances: [
       {
         prompt: `${prompt}. 
@@ -92,14 +99,6 @@ export async function generateVideo(prompt: string, options?: {
     },
   };
 
-  // Image-to-Video: add reference image
-  if (options?.imageBase64 && options?.imageMimeType) {
-    requestBody.instances[0].image = {
-      bytesBase64Encoded: options.imageBase64,
-      mimeType: options.imageMimeType,
-    };
-  }
-
   const res = await fetch(
     `${GEMINI_API_BASE}/models/${model}:predict?key=${apiKey}`,
     {
@@ -111,16 +110,18 @@ export async function generateVideo(prompt: string, options?: {
 
   const data = await res.json();
 
+  if (data.error) {
+    throw new Error(`Veo API error: ${data.error.message}`);
+  }
+
   // Veo returns an operation for async processing
   if (data.name) {
-    // Poll for completion
     return await pollVideoOperation(data.name, apiKey);
   }
 
-  // Direct response with video
   const videoPart = data.predictions?.[0];
   if (!videoPart) {
-    throw new Error("No video generated. Response: " + JSON.stringify(data));
+    throw new Error("No video generated.");
   }
 
   return {
@@ -150,17 +151,20 @@ async function pollVideoOperation(operationName: string, apiKey: string, maxWait
 
     await new Promise((r) => setTimeout(r, 5000));
   }
-  throw new Error("Video generation timeout after " + maxWaitSec + "s");
+  throw new Error("Video generation timeout");
 }
 
-// ─── CONTENT GENERATION (Gemini for text) ───
+// ─── TEXT GENERATION (for captions) ───
 
 export async function generateText(prompt: string, systemPrompt?: string) {
   const apiKey = getApiKey();
-  const model = "gemini-2.0-flash";
+  const model = "gemini-2.5-flash";
 
   const body: any = {
     contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      maxOutputTokens: 2048,
+    },
   };
   if (systemPrompt) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
@@ -176,32 +180,10 @@ export async function generateText(prompt: string, systemPrompt?: string) {
   );
 
   const data = await res.json();
+
+  if (data.error) {
+    throw new Error(`Gemini text error: ${data.error.message}`);
+  }
+
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-}
-
-// ─── UPLOAD TO PUBLICLY ACCESSIBLE URL ───
-// Instagram requires media to be hosted on a public URL
-// In production, upload to Google Cloud Storage, Cloudinary, or similar
-
-export async function uploadMediaForInstagram(
-  base64Data: string,
-  mimeType: string,
-  filename: string
-): Promise<string> {
-  // Option 1: Upload to a public bucket
-  // For now, we return a placeholder — in production, integrate with:
-  // - Google Cloud Storage
-  // - Cloudinary (free tier available)
-  // - Vercel Blob Storage
-  
-  // TODO: Implement actual upload
-  // Example with Cloudinary:
-  // const cloudinary = require('cloudinary').v2;
-  // const result = await cloudinary.uploader.upload(`data:${mimeType};base64,${base64Data}`);
-  // return result.secure_url;
-
-  throw new Error(
-    "Media upload not configured. Set up Cloudinary or Google Cloud Storage. " +
-    "See README.md for instructions."
-  );
 }
