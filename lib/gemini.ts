@@ -1,6 +1,6 @@
 // lib/gemini.ts — Google Gemini API Integration (Images + Videos)
-// Images: Nano Banana 2 (gemini-3.1-flash-image-preview)
-// Videos: Veo 2 / Veo 3.1 (predictLongRunning endpoint)
+// Images: Nano Banana 2 (gemini-3.1-flash-image-preview) — photorealistic with branding
+// Videos: Veo 2 / Veo 3.1 (predictLongRunning endpoint) — with branding
 // Text: Gemini 2.5 Flash
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
@@ -11,13 +11,59 @@ function getApiKey() {
   return key;
 }
 
-// ─── IMAGE GENERATION (Nano Banana 2 / Gemini 3.1 Flash Image) ───
+// ─── BRAND PROMPT ADDITIONS ───
+
+const BRAND_IMAGE_RULES = `
+CRITICAL STYLE RULES — follow these exactly:
+- Style: PHOTOREALISTIC, shot on Canon EOS R5 or Sony A7IV, natural lighting
+- This must look like a REAL PHOTOGRAPH, NOT like AI-generated art
+- Use natural textures, real-world imperfections, authentic lighting with soft shadows
+- Include subtle film grain, shallow depth of field where appropriate
+- Color grading: Natural greens, warm earth tones, clean whites, subtle golden hour warmth
+
+BRAND ELEMENTS — include these in EVERY image:
+- Somewhere visible in the scene: a small elegant logo badge or label reading "Alpenwiese" in a clean serif font on a dark green background
+- Somewhere in the scene: a fresh broccoli (Brokkoli) — either as a real vegetable, as a subtle decorative element, a sticker, a patch, or worked into the composition naturally
+- The broccoli should feel intentional and playful, not random — it's an insider reference
+
+ABSOLUTELY NO:
+- Cannabis leaves, smoking, drug references, syringes, pills
+- Overly smooth AI-looking skin or textures
+- Plastic-looking objects or unrealistic lighting
+- Generic stock photo aesthetics
+`;
+
+const BRAND_VIDEO_RULES = `
+CRITICAL STYLE RULES:
+- Cinematic quality, shot on professional cinema camera
+- Natural lighting, real-world physics, authentic motion
+- Swiss Alps aesthetic: green meadows, snow-capped mountains, clean air feeling
+- Include subtle branding: "Alpenwiese" text visible on a sign, label, or product in at least one moment
+- Include a broccoli reference somewhere: a broccoli on a table, in a basket, held by someone, or as a playful element
+- Professional, premium, nature-focused — must look like a real commercial, NOT like AI
+
+ABSOLUTELY NO: Cannabis leaves, smoking, drug imagery, unrealistic physics
+`;
+
+// ─── IMAGE GENERATION (Nano Banana 2) ───
 
 export async function generateImage(prompt: string, options?: {
   aspectRatio?: "1:1" | "9:16" | "16:9" | "4:3" | "3:4";
+  refinement?: string;
+  skipBranding?: boolean;
 }) {
   const apiKey = getApiKey();
   const model = "gemini-3.1-flash-image-preview";
+
+  let fullPrompt = `Generate a photorealistic image: ${prompt}`;
+
+  if (options?.refinement) {
+    fullPrompt += `\n\nADDITIONAL REFINEMENT from user: ${options.refinement}`;
+  }
+
+  if (!options?.skipBranding) {
+    fullPrompt += `\n\n${BRAND_IMAGE_RULES}`;
+  }
 
   const res = await fetch(
     `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
@@ -25,19 +71,7 @@ export async function generateImage(prompt: string, options?: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: `Generate an image: ${prompt}. 
-                Style: Professional, clean, Swiss Alpine aesthetic. 
-                Brand colors: deep forest green, meadow green, white, gold accents.
-                Do NOT include any cannabis leaves, smoking imagery, or drug references.
-                Focus on: Alpine landscapes, clean medical aesthetics, nature, Swiss quality.`,
-              },
-            ],
-          },
-        ],
+        contents: [{ parts: [{ text: fullPrompt }] }],
         generationConfig: {
           responseModalities: ["TEXT", "IMAGE"],
           imageConfig: {
@@ -73,6 +107,48 @@ export async function generateImage(prompt: string, options?: {
   };
 }
 
+// ─── IMAGE REFINEMENT ───
+
+export async function refineImage(originalPrompt: string, feedback: string) {
+  // Generate an improved prompt based on feedback
+  const apiKey = getApiKey();
+  const model = "gemini-2.5-flash";
+
+  const refinementRequest = `The original image prompt was: "${originalPrompt}"
+
+The user's feedback is: "${feedback}"
+
+Create an IMPROVED image prompt that incorporates the feedback.
+Keep the Alpenwiese brand style: photorealistic, Swiss Alps, elegant, premium.
+Always include the Alpenwiese logo badge and a broccoli element.
+Respond ONLY with the new prompt, no explanations.`;
+
+  const body = {
+    contents: [{ parts: [{ text: refinementRequest }] }],
+    generationConfig: { maxOutputTokens: 500 },
+  };
+
+  const res = await fetch(
+    `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+
+  const data = await res.json();
+  const improvedPrompt = data.candidates?.[0]?.content?.parts?.[0]?.text || originalPrompt;
+
+  // Generate image with improved prompt
+  const image = await generateImage(improvedPrompt.trim(), { refinement: feedback });
+
+  return {
+    ...image,
+    improvedPrompt: improvedPrompt.trim(),
+  };
+}
+
 // ─── VIDEO GENERATION (Veo 2 / Veo 3.1) ───
 
 export async function generateVideo(prompt: string, options?: {
@@ -86,11 +162,7 @@ export async function generateVideo(prompt: string, options?: {
   const model = options?.model || "veo-2.0-generate-001";
 
   const instance: any = {
-    prompt: `${prompt}. 
-      Cinematic quality, smooth camera movements.
-      Brand aesthetic: Swiss Alps, green meadows, clean professional look.
-      NO smoking, NO drug imagery, NO cannabis leaves.
-      Professional, premium, nature-focused.`,
+    prompt: `${prompt}\n\n${BRAND_VIDEO_RULES}`,
   };
 
   if (options?.imageBase64 && options?.imageMimeType) {
@@ -139,14 +211,11 @@ async function pollVideoOperation(operationName: string, apiKey: string, maxWait
   while (Date.now() - startTime < maxWaitSec * 1000) {
     const res = await fetch(
       `${GEMINI_API_BASE}/${operationName}`,
-      {
-        headers: { "x-goog-api-key": apiKey },
-      }
+      { headers: { "x-goog-api-key": apiKey } }
     );
     const data = await res.json();
 
     if (data.done) {
-      // Handle Veo generateVideoResponse format
       const gvr = data.response?.generateVideoResponse;
       if (gvr?.generatedSamples?.length > 0) {
         const sample = gvr.generatedSamples[0];
@@ -157,7 +226,6 @@ async function pollVideoOperation(operationName: string, apiKey: string, maxWait
         };
       }
 
-      // Handle alternative response formats
       const videos = data.response?.generatedSamples || data.response?.predictions || [];
       if (videos.length > 0) {
         const video = videos[0];
@@ -168,7 +236,6 @@ async function pollVideoOperation(operationName: string, apiKey: string, maxWait
         };
       }
 
-      // Handle direct video response
       const video = data.response?.video;
       if (video) {
         return {
@@ -190,7 +257,7 @@ async function pollVideoOperation(operationName: string, apiKey: string, maxWait
   throw new Error("Video timeout after " + maxWaitSec + "s");
 }
 
-// ─── TEXT GENERATION (for captions) ───
+// ─── TEXT GENERATION ───
 
 export async function generateText(prompt: string, systemPrompt?: string) {
   const apiKey = getApiKey();
@@ -198,9 +265,7 @@ export async function generateText(prompt: string, systemPrompt?: string) {
 
   const body: any = {
     contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      maxOutputTokens: 2048,
-    },
+    generationConfig: { maxOutputTokens: 2048 },
   };
   if (systemPrompt) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] };
