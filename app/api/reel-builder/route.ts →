@@ -1,0 +1,136 @@
+/ app/api/reel-builder/route.ts — Multi-Clip Reel Builder with Scene Planning & Refinement
+
+import { NextRequest, NextResponse } from "next/server";
+import { generateText, generateVideo } from "@/lib/gemini";
+import { SYSTEM_PROMPT } from "@/lib/brand";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { action, ...params } = await req.json();
+
+    switch (action) {
+      // ─── PLAN SCENES ───
+      case "plan_scenes": {
+        const { theme, clipCount = 3 } = params;
+
+        const prompt = `Erstelle ein Instagram Reel-Konzept mit ${clipCount} Szenen zum Thema: "${theme}"
+
+Für JEDE Szene gib an:
+1. Szenen-Nummer
+2. Visueller Prompt (auf Englisch, für KI-Videogenerierung optimiert, max 2 Sätze)
+3. Text-Overlay (kurzer deutscher Text der im Video eingeblendet wird)
+4. Dauer: 8 Sekunden
+
+WICHTIG für die visuellen Prompts:
+- Cinematic quality, smooth camera movements
+- Swiss Alps aesthetic, green meadows, clean professional look
+- KEINE Cannabis-Blätter, kein Rauchen, keine Drogen-Imagery
+- Fokus auf: Natur, Berge, Gesundheit, Premium-Qualität
+
+Antworte NUR im folgenden JSON-Format, keine anderen Texte:
+[
+  {"scene": 1, "prompt": "English visual prompt here", "overlay": "Deutscher Text-Overlay", "duration": 8},
+  {"scene": 2, "prompt": "English visual prompt here", "overlay": "Deutscher Text-Overlay", "duration": 8},
+  {"scene": 3, "prompt": "English visual prompt here", "overlay": "Deutscher Text-Overlay", "duration": 8}
+]`;
+
+        const result = await generateText(prompt, SYSTEM_PROMPT);
+
+        // Parse JSON from response
+        let scenes;
+        try {
+          const jsonMatch = result.match(/\[[\s\S]*\]/);
+          scenes = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+        } catch {
+          scenes = null;
+        }
+
+        if (!scenes) {
+          return NextResponse.json({
+            success: false,
+            error: "Szenen konnten nicht generiert werden. Versuche es nochmal.",
+            raw: result,
+          });
+        }
+
+        return NextResponse.json({ success: true, scenes });
+      }
+
+      // ─── GENERATE SINGLE CLIP ───
+      case "generate_clip": {
+        const { prompt, sceneIndex, aspectRatio = "9:16", duration = 8 } = params;
+
+        const video = await generateVideo(prompt, {
+          aspectRatio,
+          durationSeconds: duration,
+        });
+
+        return NextResponse.json({
+          success: true,
+          sceneIndex,
+          video: {
+            url: video.url,
+            mimeType: video.mimeType,
+          },
+        });
+      }
+
+      // ─── REFINE CLIP ───
+      case "refine_clip": {
+        const { originalPrompt, feedback, sceneIndex } = params;
+
+        // Generate improved prompt based on feedback
+        const refinementPrompt = `Der originale Video-Prompt war: "${originalPrompt}"
+
+Das Feedback des Nutzers ist: "${feedback}"
+
+Erstelle einen VERBESSERTEN englischen Video-Prompt der das Feedback einarbeitet.
+Behalte den Alpenwiese-Stil bei: Swiss Alps, cinematic, professional, no drug imagery.
+Antworte NUR mit dem neuen Prompt, keine Erklärungen.`;
+
+        const improvedPrompt = await generateText(refinementPrompt, SYSTEM_PROMPT);
+
+        // Generate new video with improved prompt
+        const video = await generateVideo(improvedPrompt.trim(), {
+          aspectRatio: "9:16",
+          durationSeconds: 8,
+        });
+
+        return NextResponse.json({
+          success: true,
+          sceneIndex,
+          improvedPrompt: improvedPrompt.trim(),
+          video: {
+            url: video.url,
+            mimeType: video.mimeType,
+          },
+        });
+      }
+
+      // ─── GENERATE CAPTION FOR REEL ───
+      case "generate_caption": {
+        const { scenes, theme } = params;
+
+        const overlays = scenes.map((s: any) => s.overlay).join(" → ");
+        const captionPrompt = `Erstelle eine Instagram Reel-Caption für ein ${scenes.length}-Szenen Video zum Thema "${theme}".
+Die Szenen zeigen: ${overlays}
+Max 2200 Zeichen, mit Hook, Emojis, Brokkoli-Humor, Lidl-Bezug, und 5-8 Hashtags.`;
+
+        const caption = await generateText(captionPrompt, SYSTEM_PROMPT);
+
+        return NextResponse.json({ success: true, caption });
+      }
+
+      default:
+        return NextResponse.json(
+          { success: false, error: `Unbekannte Aktion: ${action}` },
+          { status: 400 }
+        );
+    }
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
