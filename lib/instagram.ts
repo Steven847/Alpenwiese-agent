@@ -1,8 +1,8 @@
 // lib/instagram.ts — Meta Graph API Integration for Instagram
+// IMPORTANT: Uses graph.facebook.com (not graph.instagram.com) for Page Token compatibility
 
 const GRAPH_API_VERSION = "v25.0";
-const GRAPH_API_BASE = `https://graph.instagram.com/${GRAPH_API_VERSION}`;
-const GRAPH_FB_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
+const GRAPH_API_BASE = "https://graph.facebook.com/" + GRAPH_API_VERSION;
 
 function getToken() {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN;
@@ -16,31 +16,30 @@ function getAccountId() {
   return id;
 }
 
-// ─── PUBLISHING ───
+// --- PUBLISHING ---
 
-/** Publish a single image post */
 export async function publishImagePost(imageUrl: string, caption: string) {
   const token = getToken();
   const accountId = getAccountId();
 
   // Step 1: Create media container
-  const containerRes = await fetch(`${GRAPH_API_BASE}/${accountId}/media`, {
+  const containerRes = await fetch(GRAPH_API_BASE + "/" + accountId + "/media", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       image_url: imageUrl,
-      caption,
+      caption: caption,
       access_token: token,
     }),
   });
   const container = await containerRes.json();
-  if (container.error) throw new Error(`Container error: ${container.error.message}`);
+  if (container.error) throw new Error("Container error: " + container.error.message);
 
   // Step 2: Wait for container to be ready
   await waitForContainer(container.id, token);
 
   // Step 3: Publish
-  const publishRes = await fetch(`${GRAPH_API_BASE}/${accountId}/media_publish`, {
+  const publishRes = await fetch(GRAPH_API_BASE + "/" + accountId + "/media_publish", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -49,38 +48,34 @@ export async function publishImagePost(imageUrl: string, caption: string) {
     }),
   });
   const published = await publishRes.json();
-  if (published.error) throw new Error(`Publish error: ${published.error.message}`);
+  if (published.error) throw new Error("Publish error: " + published.error.message);
 
   return { success: true, mediaId: published.id };
 }
 
-/** Publish a Reel (video) */
 export async function publishReel(videoUrl: string, caption: string, coverUrl?: string) {
   const token = getToken();
   const accountId = getAccountId();
 
-  // Step 1: Create reel container
   const body: Record<string, string> = {
     media_type: "REELS",
     video_url: videoUrl,
-    caption,
+    caption: caption,
     access_token: token,
   };
   if (coverUrl) body.cover_url = coverUrl;
 
-  const containerRes = await fetch(`${GRAPH_API_BASE}/${accountId}/media`, {
+  const containerRes = await fetch(GRAPH_API_BASE + "/" + accountId + "/media", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   const container = await containerRes.json();
-  if (container.error) throw new Error(`Reel container error: ${container.error.message}`);
+  if (container.error) throw new Error("Reel container error: " + container.error.message);
 
-  // Step 2: Wait for video processing
   await waitForContainer(container.id, token, 60);
 
-  // Step 3: Publish
-  const publishRes = await fetch(`${GRAPH_API_BASE}/${accountId}/media_publish`, {
+  const publishRes = await fetch(GRAPH_API_BASE + "/" + accountId + "/media_publish", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -89,20 +84,18 @@ export async function publishReel(videoUrl: string, caption: string, coverUrl?: 
     }),
   });
   const published = await publishRes.json();
-  if (published.error) throw new Error(`Reel publish error: ${published.error.message}`);
+  if (published.error) throw new Error("Reel publish error: " + published.error.message);
 
   return { success: true, mediaId: published.id };
 }
 
-/** Publish a carousel post */
 export async function publishCarousel(items: { imageUrl: string }[], caption: string) {
   const token = getToken();
   const accountId = getAccountId();
 
-  // Step 1: Create child containers
   const childIds: string[] = [];
   for (const item of items) {
-    const res = await fetch(`${GRAPH_API_BASE}/${accountId}/media`, {
+    const res = await fetch(GRAPH_API_BASE + "/" + accountId + "/media", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -112,26 +105,24 @@ export async function publishCarousel(items: { imageUrl: string }[], caption: st
       }),
     });
     const child = await res.json();
-    if (child.error) throw new Error(`Carousel child error: ${child.error.message}`);
+    if (child.error) throw new Error("Carousel child error: " + child.error.message);
     childIds.push(child.id);
   }
 
-  // Step 2: Create carousel container
-  const containerRes = await fetch(`${GRAPH_API_BASE}/${accountId}/media`, {
+  const containerRes = await fetch(GRAPH_API_BASE + "/" + accountId + "/media", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       media_type: "CAROUSEL",
       children: childIds.join(","),
-      caption,
+      caption: caption,
       access_token: token,
     }),
   });
   const container = await containerRes.json();
-  if (container.error) throw new Error(`Carousel error: ${container.error.message}`);
+  if (container.error) throw new Error("Carousel error: " + container.error.message);
 
-  // Step 3: Publish
-  const publishRes = await fetch(`${GRAPH_API_BASE}/${accountId}/media_publish`, {
+  const publishRes = await fetch(GRAPH_API_BASE + "/" + accountId + "/media_publish", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -143,102 +134,92 @@ export async function publishCarousel(items: { imageUrl: string }[], caption: st
   return { success: true, mediaId: published.id };
 }
 
-// ─── COMMENTS ───
+// --- COMMENTS ---
 
-/** Post a comment on a media object */
 export async function postComment(mediaId: string, message: string) {
   const token = getToken();
-  const res = await fetch(`${GRAPH_API_BASE}/${mediaId}/comments`, {
+  const res = await fetch(GRAPH_API_BASE + "/" + mediaId + "/comments", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, access_token: token }),
+    body: JSON.stringify({ message: message, access_token: token }),
   });
   return res.json();
 }
 
-/** Reply to a comment */
 export async function replyToComment(commentId: string, message: string) {
   const token = getToken();
-  const res = await fetch(`${GRAPH_API_BASE}/${commentId}/replies`, {
+  const res = await fetch(GRAPH_API_BASE + "/" + commentId + "/replies", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, access_token: token }),
+    body: JSON.stringify({ message: message, access_token: token }),
   });
   return res.json();
 }
 
-/** Get comments on a media object */
 export async function getComments(mediaId: string) {
   const token = getToken();
   const res = await fetch(
-    `${GRAPH_API_BASE}/${mediaId}/comments?fields=id,text,timestamp,username&access_token=${token}`
+    GRAPH_API_BASE + "/" + mediaId + "/comments?fields=id,text,timestamp,username&access_token=" + token
   );
   return res.json();
 }
 
-// ─── INSIGHTS ───
+// --- INSIGHTS ---
 
-/** Get account insights */
-export async function getAccountInsights(period: "day" | "week" | "days_28" = "day") {
+export async function getAccountInsights(period: string) {
   const token = getToken();
   const accountId = getAccountId();
   const metrics = "impressions,reach,accounts_engaged,profile_views";
   const res = await fetch(
-    `${GRAPH_API_BASE}/${accountId}/insights?metric=${metrics}&period=${period}&access_token=${token}`
+    GRAPH_API_BASE + "/" + accountId + "/insights?metric=" + metrics + "&period=" + period + "&access_token=" + token
   );
   return res.json();
 }
 
-/** Get media insights */
 export async function getMediaInsights(mediaId: string) {
   const token = getToken();
   const metrics = "impressions,reach,engagement,saved";
   const res = await fetch(
-    `${GRAPH_API_BASE}/${mediaId}/insights?metric=${metrics}&access_token=${token}`
+    GRAPH_API_BASE + "/" + mediaId + "/insights?metric=" + metrics + "&access_token=" + token
   );
   return res.json();
 }
 
-/** Get recent media */
-export async function getRecentMedia(limit = 20) {
+export async function getRecentMedia(limit: number) {
   const token = getToken();
   const accountId = getAccountId();
   const res = await fetch(
-    `${GRAPH_API_BASE}/${accountId}/media?fields=id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count&limit=${limit}&access_token=${token}`
+    GRAPH_API_BASE + "/" + accountId + "/media?fields=id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count&limit=" + limit + "&access_token=" + token
   );
   return res.json();
 }
 
-// ─── HASHTAG SEARCH ───
+// --- HASHTAG SEARCH ---
 
-/** Search for posts with a hashtag */
 export async function searchHashtag(hashtag: string) {
   const token = getToken();
   const accountId = getAccountId();
 
-  // Get hashtag ID
   const searchRes = await fetch(
-    `${GRAPH_API_BASE}/ig_hashtag_search?user_id=${accountId}&q=${encodeURIComponent(hashtag)}&access_token=${token}`
+    GRAPH_API_BASE + "/ig_hashtag_search?user_id=" + accountId + "&q=" + encodeURIComponent(hashtag) + "&access_token=" + token
   );
   const searchData = await searchRes.json();
   if (!searchData.data?.[0]?.id) return { data: [] };
 
   const hashtagId = searchData.data[0].id;
-
-  // Get recent media for hashtag
   const mediaRes = await fetch(
-    `${GRAPH_API_BASE}/${hashtagId}/recent_media?user_id=${accountId}&fields=id,caption,media_type,timestamp,permalink&access_token=${token}`
+    GRAPH_API_BASE + "/" + hashtagId + "/recent_media?user_id=" + accountId + "&fields=id,caption,media_type,timestamp,permalink&access_token=" + token
   );
   return mediaRes.json();
 }
 
-// ─── HELPERS ───
+// --- HELPERS ---
 
-async function waitForContainer(containerId: string, token: string, maxWaitSec = 30) {
+async function waitForContainer(containerId: string, token: string, maxWaitSec: number = 30) {
   const startTime = Date.now();
   while (Date.now() - startTime < maxWaitSec * 1000) {
     const res = await fetch(
-      `${GRAPH_API_BASE}/${containerId}?fields=status_code&access_token=${token}`
+      GRAPH_API_BASE + "/" + containerId + "?fields=status_code&access_token=" + token
     );
     const data = await res.json();
     if (data.status_code === "FINISHED") return;
@@ -248,7 +229,6 @@ async function waitForContainer(containerId: string, token: string, maxWaitSec =
   throw new Error("Container processing timeout");
 }
 
-/** Refresh a long-lived token */
 export async function refreshToken() {
   const token = getToken();
   const appId = process.env.META_APP_ID;
@@ -256,7 +236,7 @@ export async function refreshToken() {
   if (!appId || !appSecret) throw new Error("META_APP_ID or META_APP_SECRET not set");
 
   const res = await fetch(
-    `${GRAPH_FB_BASE}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${token}`
+    GRAPH_API_BASE + "/oauth/access_token?grant_type=fb_exchange_token&client_id=" + appId + "&client_secret=" + appSecret + "&fb_exchange_token=" + token
   );
   return res.json();
 }
