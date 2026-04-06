@@ -94,7 +94,7 @@ export default function Dashboard() {
     if (!reelTheme.trim()) return;
     setBuildingReel(true); setStatus("KI plant Szenen..."); setScenes([]);
     try {
-      const res = await fetch("/api/reel-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "plan_scenes", theme: reelTheme, clipCount: 3 }) });
+      const res = await fetch("/api/reelbuilder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "plan_scenes", theme: reelTheme, clipCount: 3 }) });
       const data = await res.json();
       if (data.success && data.scenes) {
         setScenes(data.scenes.map((s: any) => ({ ...s, status: "pending" })));
@@ -110,7 +110,7 @@ export default function Dashboard() {
     const updated = [...scenes]; updated[index] = { ...scene, status: "generating" }; setScenes(updated);
     setStatus("Generiere Szene " + (index + 1) + "... (1-3 Min)");
     try {
-      const res = await fetch("/api/reel-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_clip", prompt: scene.prompt, sceneIndex: index }) });
+      const res = await fetch("/api/reelbuilder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_clip", prompt: scene.prompt, sceneIndex: index }) });
       const data = await res.json();
       const u2 = [...scenes];
       if (data.success && data.video?.url) { u2[index] = { ...u2[index], videoUrl: data.video.url, status: "done" }; setStatus("Szene " + (index + 1) + " fertig!"); }
@@ -130,7 +130,7 @@ export default function Dashboard() {
     const updated = [...scenes]; updated[index] = { ...scene, status: "generating" }; setScenes(updated);
     setStatus("Verfeinere Szene " + (index + 1) + "...");
     try {
-      const res = await fetch("/api/reel-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refine_clip", originalPrompt: scene.prompt, feedback: scene.feedback, sceneIndex: index }) });
+      const res = await fetch("/api/reelbuilder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refine_clip", originalPrompt: scene.prompt, feedback: scene.feedback, sceneIndex: index }) });
       const data = await res.json();
       const u2 = [...scenes];
       if (data.success && data.video?.url) { u2[index] = { ...u2[index], prompt: data.improvedPrompt || scene.prompt, videoUrl: data.video.url, status: "done", feedback: "" }; setStatus("Szene " + (index + 1) + " verfeinert!"); }
@@ -142,7 +142,7 @@ export default function Dashboard() {
   const generateReelCaption = async () => {
     setStatus("Generiere Caption...");
     try {
-      const res = await fetch("/api/reel-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_caption", scenes, theme: reelTheme }) });
+      const res = await fetch("/api/reelbuilder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_caption", scenes, theme: reelTheme }) });
       const data = await res.json();
       if (data.success) { setReelCaption(data.caption); setStatus("Caption generiert!"); }
       else { setStatus("Fehler: " + data.error); }
