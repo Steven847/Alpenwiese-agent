@@ -96,7 +96,6 @@ export default function Dashboard() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", minHeight: "100vh", background: C.cream }}>
-      {/* Header */}
       <div style={{
         background: `linear-gradient(135deg, ${C.forest}, ${C.meadow})`,
         padding: "20px", borderRadius: "0 0 24px 24px",
@@ -127,7 +126,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Tabs */}
       <div style={{
         display: "flex", overflow: "auto", padding: "8px 16px",
         gap: 4, borderBottom: `1px solid ${C.alpine}33`,
@@ -149,9 +147,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Content */}
       <div style={{ padding: 16 }}>
-        {/* GENERATE TAB */}
         {activeTab === "generate" && (
           <div style={{
             background: "#fff", borderRadius: 16, padding: 20,
@@ -162,7 +158,6 @@ export default function Dashboard() {
               fontFamily: "'Playfair Display', serif" }}>
               🌿 Content Generator
             </h2>
-
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: C.stone,
                 textTransform: "uppercase", letterSpacing: 1 }}>Content-Typ</label>
@@ -183,7 +178,6 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: C.stone,
                 textTransform: "uppercase", letterSpacing: 1 }}>Tonalität</label>
@@ -199,7 +193,6 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: C.stone,
                 textTransform: "uppercase", letterSpacing: 1 }}>Thema</label>
@@ -213,7 +206,6 @@ export default function Dashboard() {
                 }}
               />
             </div>
-
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button onClick={generate} disabled={loading} style={{
                 flex: 1, padding: 14, borderRadius: 12, border: "none",
@@ -231,7 +223,6 @@ export default function Dashboard() {
                 📸 Bild (Nano Banana 2)
               </button>
             </div>
-
             {status && (
               <div style={{
                 marginTop: 12, padding: "8px 14px", borderRadius: 10,
@@ -242,277 +233,9 @@ export default function Dashboard() {
                 {status}
               </div>
             )}
-
             {imagePreview && (
               <div style={{ marginTop: 16, textAlign: "center" }}>
                 <img src={imagePreview} alt="Generated" style={{
-                  maxWidth: "100%", borderRadius: 12,
-                  border: `2px solid ${C.alpine}44`,
+                  maxWidth: "100%", borderRadius: 12, border: `2px solid ${C.alpine}44`,
                 }} />
               </div>
-            )}
-
-            {result && activeTab === "generate" && (
-              <div style={{
-                marginTop: 16, padding: 20, borderRadius: 12,
-                background: `linear-gradient(135deg, ${C.snow}, #fff)`,
-                border: `1px solid ${C.alpine}44`,
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 6 }}>
-                  <span style={{
-                    padding: "3px 10px", borderRadius: 20, fontSize: 11,
-                    fontWeight: 600, background: C.gold + "44", color: C.forest,
-                  }}>Generiert</span>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => navigator.clipboard?.writeText(result)} style={{
-                      padding: "4px 12px", borderRadius: 8, border: `1px solid ${C.alpine}`,
-                      background: "#fff", fontSize: 11, cursor: "pointer", color: C.forest,
-                    }}>Kopieren</button>
-                    <button onClick={publishToInstagram} style={{
-                      padding: "4px 12px", borderRadius: 8, border: "none",
-                      background: "linear-gradient(135deg, #E1306C, #C13584)",
-                      fontSize: 11, cursor: "pointer", color: "#fff", fontWeight: 700,
-                    }}>Auf Instagram posten</button>
-                  </div>
-                </div>
-                <pre style={{
-                  whiteSpace: "pre-wrap", wordBreak: "break-word",
-                  fontSize: 13, lineHeight: 1.6, color: C.bark, margin: 0,
-                  fontFamily: "'DM Sans', sans-serif",
-                }}>{result}</pre>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* IMAGE TAB */}
-        {activeTab === "image" && (
-          <div style={{
-            background: "#fff", borderRadius: 16, padding: 20,
-            border: `1px solid ${C.alpine}33`,
-          }}>
-            <h2 style={{ margin: "0 0 12px", fontSize: 17, color: C.forest,
-              fontFamily: "'Playfair Display', serif" }}>
-              📸 Bild-Generator (Nano Banana 2)
-            </h2>
-            <p style={{ fontSize: 12, color: C.stone, margin: "0 0 16px" }}>
-              Generiere Instagram-Grafiken mit der Google Gemini API.
-            </p>
-            <input type="text" value={topic} onChange={e => setTopic(e.target.value)}
-              placeholder="Beschreibe das Bild..."
-              style={{
-                width: "100%", padding: 12, borderRadius: 12,
-                border: `1px solid ${C.alpine}44`, fontSize: 14, marginBottom: 12,
-                boxSizing: "border-box",
-              }}
-            />
-            <button onClick={generateImage} disabled={loading} style={{
-              width: "100%", padding: 14, borderRadius: 12, border: "none",
-              background: "linear-gradient(135deg, #FF9800, #F57C00)",
-              color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
-            }}>
-              {loading ? "Nano Banana 2 generiert..." : "📸 Bild generieren"}
-            </button>
-            {status && (
-              <div style={{ marginTop: 12, padding: 10, borderRadius: 10,
-                background: status.includes("Fehler") ? "#FFF3E0" : C.snow,
-                fontSize: 12, color: status.includes("Fehler") ? "#E65100" : C.forest }}>
-                {status}
-              </div>
-            )}
-            {imagePreview && (
-              <img src={imagePreview} alt="Generated" style={{
-                width: "100%", marginTop: 16, borderRadius: 12,
-              }} />
-            )}
-          </div>
-        )}
-
-        {/* VIDEO TAB */}
-        {activeTab === "video" && (
-          <div style={{
-            background: "#fff", borderRadius: 16, padding: 20,
-            border: `1px solid ${C.alpine}33`,
-          }}>
-            <h2 style={{ margin: "0 0 12px", fontSize: 17, color: C.forest,
-              fontFamily: "'Playfair Display', serif" }}>
-              🎬 Video/Reel-Generator (Veo 2)
-            </h2>
-            <p style={{ fontSize: 12, color: C.stone, margin: "0 0 16px" }}>
-              Generiere Instagram Reels mit Google Veo. 8 Sekunden, Hochformat (9:16).
-            </p>
-            <input type="text" value={topic} onChange={e => setTopic(e.target.value)}
-              placeholder="Beschreibe das Video/Reel..."
-              style={{
-                width: "100%", padding: 12, borderRadius: 12,
-                border: `1px solid ${C.alpine}44`, fontSize: 14, marginBottom: 12,
-                boxSizing: "border-box",
-              }}
-            />
-            <button onClick={async () => {
-              setLoading(true);
-              setStatus("Generiere Video mit Veo 2... (1-3 Min)");
-              setResult(null);
-              try {
-                const res = await fetch("/api/video", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ prompt: topic, aspectRatio: "9:16", duration: 8 }),
-                });
-                const data = await res.json();
-                if (data.success && data.video?.url) {
-                  setResult(data.video.url);
-                  setStatus("Video generiert! 🎬");
-                } else {
-                  setStatus("Fehler: " + (data.error || "Kein Video"));
-                }
-              } catch (e: any) { setStatus("Fehler: " + e.message); }
-              setLoading(false);
-            }} disabled={loading} style={{
-              width: "100%", padding: 14, borderRadius: 12, border: "none",
-              background: "linear-gradient(135deg, #9C27B0, #7B1FA2)",
-              color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
-            }}>
-              {loading ? "Veo generiert... (1-3 Min)" : "🎬 Reel generieren"}
-            </button>
-            {status && (
-              <div style={{ marginTop: 12, padding: 10, borderRadius: 10,
-                background: status.includes("Fehler") ? "#FFF3E0" : C.snow,
-                fontSize: 12, color: status.includes("Fehler") ? "#E65100" : C.forest }}>
-                {status}
-              </div>
-            )}
-            {result && activeTab === "video" && result.startsWith("http") && (
-              <div style={{ marginTop: 16 }}>
-                <video
-                  controls
-                  autoPlay
-                  loop
-                  playsInline
-                  style={{
-                    width: "100%", maxWidth: 400, borderRadius: 12,
-                    border: `2px solid ${C.alpine}44`, display: "block",
-                    margin: "0 auto",
-                  }}
-                >
-                  <source src={result} type="video/mp4" />
-                </video>
-                <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                  <a href={result} target="_blank" rel="noopener noreferrer" style={{
-                    padding: "8px 16px", borderRadius: 8, border: "none",
-                    background: "linear-gradient(135deg, #9C27B0, #7B1FA2)",
-                    color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none",
-                  }}>
-                    Video herunterladen
-                  </a>
-                  <button onClick={() => navigator.clipboard?.writeText(result)} style={{
-                    padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.alpine}`,
-                    background: "#fff", fontSize: 12, cursor: "pointer", color: C.forest,
-                  }}>
-                    URL kopieren
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* AUTOPILOT TAB */}
-        {activeTab === "autopilot" && (
-          <div style={{
-            background: "#fff", borderRadius: 16, padding: 20,
-            border: `1px solid ${C.alpine}33`,
-          }}>
-            <h2 style={{ margin: "0 0 12px", fontSize: 17, color: C.forest,
-              fontFamily: "'Playfair Display', serif" }}>
-              🤖 Autopilot
-            </h2>
-            <p style={{ fontSize: 12, color: C.stone, margin: "0 0 16px" }}>
-              Der Autopilot läuft als Cron-Job auf Vercel (1x täglich um 12:00).
-              Er sucht automatisch nach Cannabis-, Brokkoli- und Gemüse-Posts und kommentiert on-brand.
-            </p>
-            <div style={{
-              padding: 16, borderRadius: 12, background: C.snow,
-              border: `1px solid ${C.alpine}33`,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.forest, marginBottom: 8 }}>
-                Status: Aktiv auf Vercel
-              </div>
-              <div style={{ fontSize: 12, color: C.stone }}>
-                Keywords: Cannabis (9), Brokkoli (5), Gemüse (9), Lidl (3)
-              </div>
-            </div>
-            <button onClick={async () => {
-              const secret = window.prompt("CRON_SECRET eingeben:");
-              if (!secret) return;
-              setStatus("Manueller Autopilot-Run...");
-              try {
-                const res = await fetch("/api/cron", {
-                  headers: { Authorization: `Bearer ${secret}` },
-                });
-                const data = await res.json();
-                setResult(JSON.stringify(data, null, 2));
-                setStatus(`${data.actions || 0} Aktionen ausgefuehrt`);
-              } catch (e: any) { setStatus("Fehler: " + e.message); }
-            }} style={{
-              marginTop: 12, width: "100%", padding: 14, borderRadius: 12,
-              border: "none", background: `linear-gradient(135deg, ${C.forest}, ${C.meadow})`,
-              color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
-            }}>
-              Jetzt manuell ausführen
-            </button>
-            {status && <div style={{ marginTop: 10, fontSize: 12, color: C.forest }}>{status}</div>}
-            {result && activeTab === "autopilot" && (
-              <pre style={{
-                marginTop: 12, padding: 12, borderRadius: 10,
-                background: "#f5f5f5", fontSize: 11, overflow: "auto",
-                maxHeight: 300,
-              }}>{result}</pre>
-            )}
-          </div>
-        )}
-
-        {/* INSIGHTS TAB */}
-        {activeTab === "insights" && (
-          <div style={{
-            background: "#fff", borderRadius: 16, padding: 20,
-            border: `1px solid ${C.alpine}33`,
-          }}>
-            <h2 style={{ margin: "0 0 12px", fontSize: 17, color: C.forest,
-              fontFamily: "'Playfair Display', serif" }}>
-              📊 Live Insights
-            </h2>
-            <button onClick={async () => {
-              setLoading(true);
-              try {
-                const res = await fetch("/api/instagram");
-                const data = await res.json();
-                setResult(JSON.stringify(data, null, 2));
-              } catch (e: any) { setResult("Fehler: " + e.message); }
-              setLoading(false);
-            }} style={{
-              width: "100%", padding: 14, borderRadius: 12, border: "none",
-              background: `linear-gradient(135deg, ${C.forest}, ${C.meadow})`,
-              color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
-            }}>
-              📊 Insights laden
-            </button>
-            {result && activeTab === "insights" && (
-              <pre style={{
-                marginTop: 16, padding: 16, borderRadius: 12,
-                background: C.snow, fontSize: 11, overflow: "auto",
-                maxHeight: 400, border: `1px solid ${C.alpine}33`,
-              }}>{result}</pre>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div style={{ padding: "20px 16px 30px", textAlign: "center", fontSize: 11, color: C.alpine }}>
-        Alpenwiese Social Media Agent v1.0
-        <br />Gemini + Meta + Autopilot
-      </div>
-    </div>
-  );
-}
