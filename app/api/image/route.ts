@@ -1,4 +1,4 @@
-/ app/api/image/route.ts — Image Generation with Refinement (Nano Banana 2)
+// app/api/image/route.ts — Image Generation with Refinement (Nano Banana 2)
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateImage, refineImage } from "@/lib/gemini";
