@@ -1,4 +1,4 @@
-// app/api/reel-builder/route.ts — Multi-Clip Reel Builder
+// app/api/reelbuilder/route.ts — Multi-Clip Reel Builder with Visual Consistency
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText, generateVideo } from "@/lib/gemini";
@@ -19,16 +19,32 @@ export async function POST(req: NextRequest) {
       case "plan_scenes": {
         const { theme, clipCount = 3 } = params;
 
-        const prompt = `Create an Instagram Reel concept with ${clipCount} scenes about: "${theme}"
-
-For EACH scene provide:
-1. Scene number
-2. Visual prompt in English for AI video generation (max 2 sentences, cinematic, Swiss Alps style)
-3. German text overlay for the video
-4. Duration: 8 seconds
-
-IMPORTANT: Respond ONLY with valid JSON, no markdown, no backticks, no explanation. Just the raw JSON array:
-[{"scene":1,"prompt":"English visual prompt","overlay":"German overlay text","duration":8},{"scene":2,"prompt":"English visual prompt","overlay":"German overlay text","duration":8},{"scene":3,"prompt":"English visual prompt","overlay":"German overlay text","duration":8}]`;
+        const prompt = "Create an Instagram Reel concept with " + clipCount + " scenes about: " + theme + "\n\n" +
+"CRITICAL VISUAL CONSISTENCY RULES:\n" +
+"All scenes MUST feel like they belong to the SAME video. They must share:\n" +
+"- SAME color palette throughout (e.g. warm golden tones, or cool blue-green tones)\n" +
+"- SAME time of day and lighting (e.g. all golden hour, or all morning light)\n" +
+"- SAME location or connected locations (e.g. all in the same Alpine valley)\n" +
+"- SAME camera style (e.g. all slow cinematic movements, or all handheld)\n" +
+"- SAME visual mood and atmosphere\n" +
+"- Each scene prompt must explicitly mention the shared visual style\n\n" +
+"NARRATIVE STRUCTURE:\n" +
+"- Scene 1: HOOK - Attention-grabbing opening that introduces the setting\n" +
+"- Scene 2: STORY - Develops the theme, shows detail or action\n" +
+"- Scene 3: PAYOFF - Emotional conclusion, brand message, call-to-action moment\n" +
+"The scenes must tell a coherent STORY with a beginning, middle, and end.\n\n" +
+"BRAND RULES:\n" +
+"- Swiss Alps aesthetic, photorealistic, professional cinema look\n" +
+"- Include Alpenwiese branding (sign, label, or text) in at least one scene\n" +
+"- Include a broccoli reference in at least one scene\n" +
+"- NO cannabis, smoking, drugs, NO children or minors\n\n" +
+"For EACH scene provide:\n" +
+"1. scene: Scene number\n" +
+"2. prompt: Detailed English visual prompt for AI video generation (3-4 sentences, include specific camera movement, lighting, colors, and atmosphere. REPEAT the shared visual style keywords in every prompt)\n" +
+"3. overlay: Short German text overlay for the video (max 8 words)\n" +
+"4. duration: 8\n\n" +
+"Respond ONLY with valid JSON array, no markdown, no backticks:\n" +
+'[{"scene":1,"prompt":"detailed prompt here","overlay":"German text","duration":8},{"scene":2,"prompt":"detailed prompt here","overlay":"German text","duration":8},{"scene":3,"prompt":"detailed prompt here","overlay":"German text","duration":8}]';
 
         const result = await generateText(prompt, SYSTEM_PROMPT);
 
@@ -53,9 +69,9 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown, no backticks, no explanati
 
         if (!scenes || !Array.isArray(scenes) || scenes.length === 0) {
           scenes = [
-            { scene: 1, prompt: "Cinematic drone shot over Swiss Alpine meadows at golden hour, mist rising from valleys, a small elegant sign reading Alpenwiese visible on a wooden post, a broccoli sits on a rustic table in the foreground. Theme: " + theme, overlay: "Schweizer Qualitaet aus den Alpen", duration: 8 },
-            { scene: 2, prompt: "Close-up of hands carefully examining premium herbs in a clean Swiss laboratory setting, natural window light, an Alpenwiese branded label visible, a small broccoli decorative element on the desk. Theme: " + theme, overlay: "Medizinisch. Praezise. Fair.", duration: 8 },
-            { scene: 3, prompt: "Wide shot of a happy person walking through a green Swiss meadow towards snow-capped mountains, holding a small branded Alpenwiese bag, a broccoli pattern visible on their scarf. Theme: " + theme, overlay: "Alpenwiese - Gut und Guenstig", duration: 8 },
+            { scene: 1, prompt: "Cinematic slow drone shot rising over a misty Swiss Alpine valley at golden hour. Warm amber and deep green color palette. Soft morning fog rolls between pine trees. A rustic wooden sign reading Alpenwiese is visible at the edge of a meadow. Shot on Arri Alexa, shallow depth of field, 24fps cinematic motion. Theme: " + theme, overlay: "Willkommen in den Alpen", duration: 8 },
+            { scene: 2, prompt: "Continuing the same golden hour lighting and warm amber-green color palette. Close-up tracking shot of hands carefully arranging fresh herbs and a bright green broccoli on a clean wooden table in a Swiss mountain cabin. Same misty Alpine valley visible through the window. Soft natural window light matches the outdoor scenes. Cinematic 24fps, shallow focus. Theme: " + theme, overlay: "Schweizer Praezision", duration: 8 },
+            { scene: 3, prompt: "Same golden hour, same Alpine valley from scene 1 but now from ground level. A person walks peacefully through the green meadow towards snow-capped mountains, carrying a small Alpenwiese branded bag. Same warm amber and deep green color palette. Camera slowly pulls back to reveal the full mountain panorama. Cinematic, emotional, 24fps. Theme: " + theme, overlay: "Alpenwiese - Natuerlich fair", duration: 8 },
           ];
         }
 
@@ -80,7 +96,7 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown, no backticks, no explanati
       case "refine_clip": {
         const { originalPrompt, feedback, sceneIndex } = params;
 
-        const refinementPrompt = "Original video prompt: " + originalPrompt + "\nUser feedback: " + feedback + "\nCreate an IMPROVED English video prompt incorporating the feedback.\nKeep Swiss Alps style, cinematic, professional. Include Alpenwiese branding and broccoli element.\nRespond ONLY with the new prompt, nothing else.";
+        const refinementPrompt = "Original video prompt: " + originalPrompt + "\n\nUser feedback: " + feedback + "\n\nCreate an IMPROVED English video prompt that incorporates the feedback.\nIMPORTANT: Keep the SAME color palette, lighting, time of day, and visual atmosphere as the original.\nKeep Swiss Alps style, cinematic, professional. Include Alpenwiese branding and broccoli element where appropriate.\nNO children, NO cannabis leaves, NO smoking.\nRespond ONLY with the new prompt, nothing else.";
 
         const improvedPrompt = await generateText(refinementPrompt, SYSTEM_PROMPT);
 
@@ -101,7 +117,7 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown, no backticks, no explanati
         const { scenes, theme } = params;
 
         const overlays = scenes.map((s: any) => s.overlay).join(" | ");
-        const captionPrompt = "Erstelle eine Instagram Reel-Caption fuer ein " + scenes.length + "-Szenen Video zum Thema: " + theme + ".\nDie Szenen zeigen: " + overlays + "\nMax 2200 Zeichen, mit Hook, Emojis, Brokkoli-Humor, Lidl-Bezug, und 5-8 Hashtags.";
+        const captionPrompt = "Erstelle eine Instagram Reel-Caption fuer ein " + scenes.length + "-Szenen Video zum Thema: " + theme + ".\nDie Szenen zeigen: " + overlays + "\nMax 2200 Zeichen, mit Hook, Emojis, Brokkoli-Humor, Lidl-Bezug, und 5-8 Hashtags.\nDie Caption soll die Geschichte des Reels erzaehlen und zum Interagieren einladen.";
 
         const caption = await generateText(captionPrompt, SYSTEM_PROMPT);
 
@@ -115,5 +131,3 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown, no backticks, no explanati
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
-
-
