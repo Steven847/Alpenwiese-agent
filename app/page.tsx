@@ -25,6 +25,8 @@ export default function Dashboard() {
   const [status, setStatus] = useState<string | null>(null);
   const [imageFeedback, setImageFeedback] = useState("");
   const [lastImagePrompt, setLastImagePrompt] = useState("");
+  const [videoFeedback, setVideoFeedback] = useState("");
+  const [lastVideoPrompt, setLastVideoPrompt] = useState("");
   // Reel Builder state
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [reelTheme, setReelTheme] = useState("");
@@ -89,15 +91,32 @@ export default function Dashboard() {
     } catch (e: any) { setStatus("Fehler: " + e.message); }
   };
 
-  const generateSingleVideo = async () => {
+  const generateSingleVideo = async (customPrompt?: string) => {
+    const videoPrompt = customPrompt || topic;
     setLoading(true); setStatus("Generiere Video mit Veo 2... (1-3 Min)"); setResult(null);
     try {
-      const res = await fetch("/api/video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: topic, aspectRatio: "9:16", duration: 8 }) });
+      const res = await fetch("/api/video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: videoPrompt, aspectRatio: "9:16", duration: 8 }) });
       const data = await res.json();
-      if (data.success && data.video?.url) { setResult(data.video.url); setStatus("Video generiert!"); }
+      if (data.success && data.video?.url) { setResult(data.video.url); setLastVideoPrompt(videoPrompt); setVideoFeedback(""); setStatus("Video generiert!"); }
       else { setStatus("Fehler: " + (data.error || "Kein Video")); }
     } catch (e: any) { setStatus("Fehler: " + e.message); }
     setLoading(false);
+  };
+
+  const refineVideoFn = async () => {
+    if (!videoFeedback.trim()) return;
+    setLoading(true); setStatus("Verfeinere Video...");
+    try {
+      const refinementPrompt = "Original video prompt: " + lastVideoPrompt + "\nUser feedback: " + videoFeedback + "\nCreate an IMPROVED English video prompt incorporating the feedback. Keep Swiss Alps style, cinematic, professional. Respond ONLY with the new prompt.";
+      const res = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentType: "prompt", tone: "neutral", topic: refinementPrompt }) });
+      const data = await res.json();
+      const improvedPrompt = data.content || lastVideoPrompt + " " + videoFeedback;
+      await generateSingleVideo(improvedPrompt.trim());
+      setStatus("Video verfeinert!");
+    } catch (e: any) {
+      // Fallback: just append feedback to original prompt
+      await generateSingleVideo(lastVideoPrompt + ". Additional: " + videoFeedback);
+    }
   };
 
   const planScenes = async () => {
@@ -275,13 +294,23 @@ export default function Dashboard() {
             <h2 style={{ margin: "0 0 12px", fontSize: 17, color: C.forest, fontFamily: "'Playfair Display', serif" }}>🎬 Einzel-Video (Veo 2)</h2>
             <p style={{ fontSize: 12, color: C.stone, margin: "0 0 16px" }}>Ein einzelnes 8-Sekunden Video im Hochformat (9:16).</p>
             <input type="text" value={topic} onChange={e => setTopic(e.target.value)} placeholder="Beschreibe das Video..." style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #81C78444", fontSize: 14, marginBottom: 12, boxSizing: "border-box" as const }} />
-            <button onClick={generateSingleVideo} disabled={loading} style={btn("linear-gradient(135deg, #9C27B0, #7B1FA2)")}>{loading ? "Veo generiert... (1-3 Min)" : "🎬 Video generieren"}</button>
+            <button onClick={() => generateSingleVideo()} disabled={loading} style={btn("linear-gradient(135deg, #9C27B0, #7B1FA2)")}>{loading ? "Veo generiert... (1-3 Min)" : "🎬 Video generieren"}</button>
             {status && <div style={stBox(status)!}>{status}</div>}
             {result && result.startsWith("http") && (
               <div style={{ marginTop: 16 }}>
                 <video controls autoPlay loop playsInline style={{ width: "100%", maxWidth: 400, borderRadius: 12, border: "2px solid #81C78444", display: "block", margin: "0 auto" }}><source src={videoProxy(result)} type="video/mp4" /></video>
                 <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "center" }}>
                   <a href={videoProxy(result)} target="_blank" rel="noopener noreferrer" style={{ padding: "8px 16px", borderRadius: 8, background: "linear-gradient(135deg, #9C27B0, #7B1FA2)", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>Herunterladen</a>
+                </div>
+                <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: "#FFF8E1", border: "1px solid #FFD54F44" }}>
+                  <label style={{ fontSize: 10, fontWeight: 600, color: "#F57F17", textTransform: "uppercase" as const }}>Video verfeinern</label>
+                  <input type="text" value={videoFeedback} onChange={e => setVideoFeedback(e.target.value)} placeholder="z.B. Langsamere Kamera, mehr Nebel, waermere Farben, Brokkoli sichtbarer..." style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #FFD54F66", fontSize: 12, marginTop: 4, boxSizing: "border-box" as const }} />
+                  <button onClick={refineVideoFn} disabled={loading || !videoFeedback.trim()} style={{ marginTop: 6, width: "100%", padding: "8px 14px", borderRadius: 8, border: "none", background: videoFeedback.trim() ? "linear-gradient(135deg, #FF9800, #F57C00)" : "#eee", color: videoFeedback.trim() ? "#fff" : "#999", fontSize: 11, fontWeight: 700, cursor: videoFeedback.trim() ? "pointer" : "default" }}>
+                    Video mit Feedback verfeinern
+                  </button>
+                </div>
+                <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+                  <button onClick={() => generateSingleVideo()} style={{ flex: 1, padding: "8px 14px", borderRadius: 8, border: "1px solid #81C784", background: "#fff", fontSize: 11, cursor: "pointer", color: C.forest }}>Komplett neu generieren</button>
                 </div>
               </div>
             )}
