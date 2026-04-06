@@ -1,6 +1,6 @@
-// lib/gemini.ts — Google Gemini API Integration (Images + Videos)
-// Images: Nano Banana 2 (gemini-3.1-flash-image-preview) — photorealistic with branding
-// Videos: Veo 2 / Veo 3.1 (predictLongRunning endpoint) — with branding
+// lib/gemini.ts — Google Gemini API (Images + Videos + Text)
+// Images: Nano Banana 2 (gemini-3.1-flash-image-preview) with image editing
+// Videos: Veo 2 (predictLongRunning endpoint)
 // Text: Gemini 2.5 Flash
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
@@ -11,62 +11,38 @@ function getApiKey() {
   return key;
 }
 
-// ─── BRAND PROMPT ADDITIONS ───
+const BRAND_IMAGE_RULES = [
+  "PHOTO STYLE: Shot on Canon EOS R5, natural lighting, shallow depth of field, subtle film grain.",
+  "Must look like a REAL photograph — natural textures, real-world imperfections, authentic shadows.",
+  "Color grading: Natural greens, warm earth tones, clean whites, golden hour warmth.",
+  "BRAND: Include a small elegant badge or label reading Alpenwiese in dark green somewhere in the scene.",
+  "BRAND: Include a fresh broccoli somewhere — as a vegetable, sticker, patch, or playful decoration.",
+  "ABSOLUTELY NO: Cannabis leaves, smoking, drug references, syringes, pills.",
+  "ABSOLUTELY NO: Children, minors, babies, kids, teenagers — no persons under 18.",
+  "ABSOLUTELY NO: Overly smooth AI skin, plastic objects, unrealistic lighting, stock photo look.",
+].join("\n");
 
-const BRAND_IMAGE_RULES = `
-CRITICAL STYLE RULES — follow these exactly:
-- Style: PHOTOREALISTIC, shot on Canon EOS R5 or Sony A7IV, natural lighting
-- This must look like a REAL PHOTOGRAPH, NOT like AI-generated art
-- Use natural textures, real-world imperfections, authentic lighting with soft shadows
-- Include subtle film grain, shallow depth of field where appropriate
-- Color grading: Natural greens, warm earth tones, clean whites, subtle golden hour warmth
+const BRAND_VIDEO_RULES = [
+  "Cinematic quality, professional cinema camera look, natural lighting.",
+  "Swiss Alps aesthetic: green meadows, snow-capped mountains, clean air.",
+  "Include Alpenwiese text on a sign, label, or product in at least one moment.",
+  "Include a broccoli reference: on a table, in a basket, or as a playful element.",
+  "Must look like a real commercial, NOT like AI generated.",
+  "ABSOLUTELY NO: Cannabis leaves, smoking, drug imagery.",
+  "ABSOLUTELY NO: Children, minors, babies, kids, teenagers — no persons under 18.",
+].join("\n");
 
-BRAND ELEMENTS — include these in EVERY image:
-- Somewhere visible in the scene: a small elegant logo badge or label reading "Alpenwiese" in a clean serif font on a dark green background
-- Somewhere in the scene: a fresh broccoli (Brokkoli) — either as a real vegetable, as a subtle decorative element, a sticker, a patch, or worked into the composition naturally
-- The broccoli should feel intentional and playful, not random — it's an insider reference
-
-ABSOLUTELY NO:
-- Cannabis leaves, smoking, drug references, syringes, pills
-- Overly smooth AI-looking skin or textures
-- Plastic-looking objects or unrealistic lighting
-- Generic stock photo aesthetics
-`;
-
-const BRAND_VIDEO_RULES = `
-CRITICAL STYLE RULES:
-- Cinematic quality, shot on professional cinema camera
-- Natural lighting, real-world physics, authentic motion
-- Swiss Alps aesthetic: green meadows, snow-capped mountains, clean air feeling
-- Include subtle branding: "Alpenwiese" text visible on a sign, label, or product in at least one moment
-- Include a broccoli reference somewhere: a broccoli on a table, in a basket, held by someone, or as a playful element
-- Professional, premium, nature-focused — must look like a real commercial, NOT like AI
-
-ABSOLUTELY NO: Cannabis leaves, smoking, drug imagery, unrealistic physics
-`;
-
-// ─── IMAGE GENERATION (Nano Banana 2) ───
+// --- IMAGE GENERATION ---
 
 export async function generateImage(prompt: string, options?: {
   aspectRatio?: "1:1" | "9:16" | "16:9" | "4:3" | "3:4";
-  refinement?: string;
-  skipBranding?: boolean;
 }) {
   const apiKey = getApiKey();
   const model = "gemini-3.1-flash-image-preview";
-
-  let fullPrompt = `Generate a photorealistic image: ${prompt}`;
-
-  if (options?.refinement) {
-    fullPrompt += `\n\nADDITIONAL REFINEMENT from user: ${options.refinement}`;
-  }
-
-  if (!options?.skipBranding) {
-    fullPrompt += `\n\n${BRAND_IMAGE_RULES}`;
-  }
+  const fullPrompt = "Generate a photorealistic image: " + prompt + "\n\n" + BRAND_IMAGE_RULES;
 
   const res = await fetch(
-    `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
+    GEMINI_API_BASE + "/models/" + model + ":generateContent?key=" + apiKey,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -84,21 +60,14 @@ export async function generateImage(prompt: string, options?: {
   );
 
   const data = await res.json();
-
-  if (data.error) {
-    throw new Error(`Gemini API error: ${data.error.message}`);
-  }
+  if (data.error) throw new Error("Gemini API error: " + data.error.message);
 
   const parts = data.candidates?.[0]?.content?.parts || [];
-  const imagePart = parts.find(
-    (p: any) => p.inlineData?.mimeType?.startsWith("image/")
-  );
+  const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
 
   if (!imagePart) {
     const textPart = parts.find((p: any) => p.text);
-    throw new Error(
-      "No image generated." + (textPart ? ` Model said: ${textPart.text.slice(0, 200)}` : "")
-    );
+    throw new Error("No image generated." + (textPart ? " Model: " + textPart.text.slice(0, 200) : ""));
   }
 
   return {
@@ -107,157 +76,131 @@ export async function generateImage(prompt: string, options?: {
   };
 }
 
-// ─── IMAGE REFINEMENT ───
+// --- IMAGE REFINEMENT (sends original image back for editing) ---
 
-export async function refineImage(originalPrompt: string, feedback: string) {
-  // Generate an improved prompt based on feedback
+export async function refineImage(originalPrompt: string, feedback: string, originalBase64?: string, originalMimeType?: string) {
   const apiKey = getApiKey();
-  const model = "gemini-2.5-flash";
+  const model = "gemini-3.1-flash-image-preview";
 
-  const refinementRequest = `The original image prompt was: "${originalPrompt}"
+  const editPrompt = "Edit this image based on the following feedback: " + feedback + "\n\nKeep the overall composition and style. " + BRAND_IMAGE_RULES;
 
-The user's feedback is: "${feedback}"
+  const contentParts: any[] = [];
 
-Create an IMPROVED image prompt that incorporates the feedback.
-Keep the Alpenwiese brand style: photorealistic, Swiss Alps, elegant, premium.
-Always include the Alpenwiese logo badge and a broccoli element.
-Respond ONLY with the new prompt, no explanations.`;
-
-  const body = {
-    contents: [{ parts: [{ text: refinementRequest }] }],
-    generationConfig: { maxOutputTokens: 500 },
-  };
+  // If we have the original image, send it for editing
+  if (originalBase64 && originalMimeType) {
+    contentParts.push({
+      inlineData: {
+        mimeType: originalMimeType,
+        data: originalBase64,
+      },
+    });
+    contentParts.push({ text: editPrompt });
+  } else {
+    // Fallback: generate improved prompt and create new image
+    const improvedPrompt = originalPrompt + ". Additional requirements: " + feedback;
+    contentParts.push({ text: "Generate a photorealistic image: " + improvedPrompt + "\n\n" + BRAND_IMAGE_RULES });
+  }
 
   const res = await fetch(
-    `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
+    GEMINI_API_BASE + "/models/" + model + ":generateContent?key=" + apiKey,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        contents: [{ parts: contentParts }],
+        generationConfig: {
+          responseModalities: ["TEXT", "IMAGE"],
+          imageConfig: {
+            aspectRatio: "1:1",
+            imageSize: "1K",
+          },
+        },
+      }),
     }
   );
 
   const data = await res.json();
-  const improvedPrompt = data.candidates?.[0]?.content?.parts?.[0]?.text || originalPrompt;
+  if (data.error) throw new Error("Gemini refine error: " + data.error.message);
 
-  // Generate image with improved prompt
-  const image = await generateImage(improvedPrompt.trim(), { refinement: feedback });
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const imagePart = parts.find((p: any) => p.inlineData?.mimeType?.startsWith("image/"));
+
+  if (!imagePart) {
+    const textPart = parts.find((p: any) => p.text);
+    throw new Error("No refined image." + (textPart ? " Model: " + textPart.text.slice(0, 200) : ""));
+  }
 
   return {
-    ...image,
-    improvedPrompt: improvedPrompt.trim(),
+    base64: imagePart.inlineData.data,
+    mimeType: imagePart.inlineData.mimeType,
+    improvedPrompt: originalPrompt + " + " + feedback,
   };
 }
 
-// ─── VIDEO GENERATION (Veo 2 / Veo 3.1) ───
+// --- VIDEO GENERATION (Veo 2) ---
 
 export async function generateVideo(prompt: string, options?: {
-  model?: "veo-2.0-generate-001" | "veo-3.1-generate-preview" | "veo-3.1-fast-generate-preview";
+  model?: string;
   aspectRatio?: "16:9" | "9:16";
   durationSeconds?: 4 | 6 | 8;
-  imageBase64?: string;
-  imageMimeType?: string;
 }) {
   const apiKey = getApiKey();
   const model = options?.model || "veo-2.0-generate-001";
 
-  const instance: any = {
-    prompt: `${prompt}\n\n${BRAND_VIDEO_RULES}`,
-  };
-
-  if (options?.imageBase64 && options?.imageMimeType) {
-    instance.image = {
-      bytesBase64Encoded: options.imageBase64,
-      mimeType: options.imageMimeType,
-    };
-  }
-
-  const requestBody = {
-    instances: [instance],
-    parameters: {
-      aspectRatio: options?.aspectRatio || "9:16",
-      sampleCount: 1,
-      durationSeconds: options?.durationSeconds || 8,
-    },
-  };
+  const fullPrompt = prompt + "\n\n" + BRAND_VIDEO_RULES;
 
   const res = await fetch(
-    `${GEMINI_API_BASE}/models/${model}:predictLongRunning`,
+    GEMINI_API_BASE + "/models/" + model + ":predictLongRunning",
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        instances: [{ prompt: fullPrompt }],
+        parameters: {
+          aspectRatio: options?.aspectRatio || "9:16",
+          sampleCount: 1,
+          durationSeconds: options?.durationSeconds || 8,
+        },
+      }),
     }
   );
 
   const data = await res.json();
-
-  if (data.error) {
-    throw new Error(`Veo API error: ${data.error.message}`);
-  }
-
-  if (data.name) {
-    return await pollVideoOperation(data.name, apiKey);
-  }
-
+  if (data.error) throw new Error("Veo API error: " + data.error.message);
+  if (data.name) return await pollVideoOperation(data.name, apiKey);
   throw new Error("Unexpected Veo response: " + JSON.stringify(data).slice(0, 200));
 }
 
 async function pollVideoOperation(operationName: string, apiKey: string, maxWaitSec = 180) {
   const startTime = Date.now();
   while (Date.now() - startTime < maxWaitSec * 1000) {
-    const res = await fetch(
-      `${GEMINI_API_BASE}/${operationName}`,
-      { headers: { "x-goog-api-key": apiKey } }
-    );
+    const res = await fetch(GEMINI_API_BASE + "/" + operationName, { headers: { "x-goog-api-key": apiKey } });
     const data = await res.json();
 
     if (data.done) {
       const gvr = data.response?.generateVideoResponse;
       if (gvr?.generatedSamples?.length > 0) {
-        const sample = gvr.generatedSamples[0];
-        return {
-          base64: null,
-          mimeType: "video/mp4",
-          url: sample.video?.uri || null,
-        };
+        return { base64: null, mimeType: "video/mp4", url: gvr.generatedSamples[0].video?.uri || null };
       }
-
       const videos = data.response?.generatedSamples || data.response?.predictions || [];
       if (videos.length > 0) {
-        const video = videos[0];
-        return {
-          base64: video.bytesBase64Encoded || null,
-          mimeType: video.mimeType || "video/mp4",
-          url: video.uri || video.video?.uri || null,
-        };
+        const v = videos[0];
+        return { base64: v.bytesBase64Encoded || null, mimeType: v.mimeType || "video/mp4", url: v.uri || v.video?.uri || null };
       }
-
-      const video = data.response?.video;
-      if (video) {
-        return {
-          base64: video.bytesBase64Encoded || null,
-          mimeType: video.mimeType || "video/mp4",
-          url: video.uri || null,
-        };
-      }
-
+      const v = data.response?.video;
+      if (v) return { base64: v.bytesBase64Encoded || null, mimeType: v.mimeType || "video/mp4", url: v.uri || null };
       throw new Error("Video done but empty: " + JSON.stringify(data.response).slice(0, 300));
     }
-
-    if (data.error) {
-      throw new Error(`Video failed: ${data.error.message}`);
-    }
-
+    if (data.error) throw new Error("Video failed: " + data.error.message);
     await new Promise((r) => setTimeout(r, 5000));
   }
   throw new Error("Video timeout after " + maxWaitSec + "s");
 }
 
-// ─── TEXT GENERATION ───
+// --- TEXT GENERATION ---
 
 export async function generateText(prompt: string, systemPrompt?: string) {
   const apiKey = getApiKey();
@@ -272,7 +215,7 @@ export async function generateText(prompt: string, systemPrompt?: string) {
   }
 
   const res = await fetch(
-    `${GEMINI_API_BASE}/models/${model}:generateContent?key=${apiKey}`,
+    GEMINI_API_BASE + "/models/" + model + ":generateContent?key=" + apiKey,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -281,10 +224,6 @@ export async function generateText(prompt: string, systemPrompt?: string) {
   );
 
   const data = await res.json();
-
-  if (data.error) {
-    throw new Error(`Gemini text error: ${data.error.message}`);
-  }
-
+  if (data.error) throw new Error("Gemini text error: " + data.error.message);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
