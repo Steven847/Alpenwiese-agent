@@ -123,7 +123,7 @@ export default function Dashboard() {
     if (!reelTheme.trim()) return;
     setBuildingReel(true); setStatus("KI plant Szenen..."); setScenes([]);
     try {
-      const res = await fetch("/api/reel-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "plan_scenes", theme: reelTheme, clipCount: 3 }) });
+      const res = await fetch("/api/reelbuilder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "plan_scenes", theme: reelTheme, clipCount: 3 }) });
       const data = await res.json();
       if (data.success && data.scenes) {
         setScenes(data.scenes.map((s: any) => ({ ...s, status: "pending" })));
@@ -139,7 +139,7 @@ export default function Dashboard() {
     const updated = [...scenes]; updated[index] = { ...scene, status: "generating" }; setScenes(updated);
     setStatus("Generiere Szene " + (index + 1) + "... (1-3 Min)");
     try {
-      const res = await fetch("/api/reel-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_clip", prompt: scene.prompt, sceneIndex: index }) });
+      const res = await fetch("/api/reelbuilder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_clip", prompt: scene.prompt, sceneIndex: index }) });
       const data = await res.json();
       const u2 = [...scenes];
       if (data.success && data.video?.url) { u2[index] = { ...u2[index], videoUrl: data.video.url, status: "done" }; setStatus("Szene " + (index + 1) + " fertig!"); }
@@ -159,7 +159,7 @@ export default function Dashboard() {
     const updated = [...scenes]; updated[index] = { ...scene, status: "generating" }; setScenes(updated);
     setStatus("Verfeinere Szene " + (index + 1) + "...");
     try {
-      const res = await fetch("/api/reel-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refine_clip", originalPrompt: scene.prompt, feedback: scene.feedback, sceneIndex: index }) });
+      const res = await fetch("/api/reelbuilder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refine_clip", originalPrompt: scene.prompt, feedback: scene.feedback, sceneIndex: index }) });
       const data = await res.json();
       const u2 = [...scenes];
       if (data.success && data.video?.url) { u2[index] = { ...u2[index], prompt: data.improvedPrompt || scene.prompt, videoUrl: data.video.url, status: "done", feedback: "" }; setStatus("Szene " + (index + 1) + " verfeinert!"); }
@@ -171,7 +171,7 @@ export default function Dashboard() {
   const generateReelCaption = async () => {
     setStatus("Generiere Caption...");
     try {
-      const res = await fetch("/api/reel-builder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_caption", scenes, theme: reelTheme }) });
+      const res = await fetch("/api/reelbuilder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_caption", scenes, theme: reelTheme }) });
       const data = await res.json();
       if (data.success) { setReelCaption(data.caption); setStatus("Caption generiert!"); }
       else { setStatus("Fehler: " + data.error); }
@@ -183,7 +183,7 @@ export default function Dashboard() {
     { id: "generate", icon: "🌿", label: "Content" },
     { id: "image", icon: "📸", label: "Bilder" },
     { id: "video", icon: "🎬", label: "Video" },
-    { id: "reelbuilder", icon: "🎞️", label: "Reel-Builder" },
+    { id: "reelbuilder", icon: "🎞️", label: "reelbuilder" },
     { id: "autopilot", icon: "🤖", label: "Autopilot" },
     { id: "insights", icon: "📊", label: "Insights" },
   ];
@@ -203,7 +203,7 @@ export default function Dashboard() {
             <div style={{ color: "#FFD54F", fontSize: 12, fontWeight: 700, letterSpacing: 3, textTransform: "uppercase" as const }}>Social Media Agent</div>
           </div>
         </div>
-        <p style={{ margin: "12px 0 0", fontSize: 12, color: "#fffc" }}>KI-gesteuert: Gemini + Meta + Reel-Builder</p>
+        <p style={{ margin: "12px 0 0", fontSize: 12, color: "#fffc" }}>KI-gesteuert: Gemini + Meta + reelbuilder</p>
       </div>
 
       <div style={{ display: "flex", overflow: "auto", padding: "8px 12px", gap: 2, borderBottom: "1px solid #81C78433", background: "#fffc", position: "sticky" as const, top: 0, zIndex: 10 }}>
@@ -320,7 +320,7 @@ export default function Dashboard() {
         {activeTab === "reelbuilder" && (
           <div style={{ display: "flex", flexDirection: "column" as const, gap: 16 }}>
             <div style={{ ...card, boxShadow: "0 0 20px #81C78444" }}>
-              <h2 style={{ margin: "0 0 8px", fontSize: 17, color: C.forest, fontFamily: "'Playfair Display', serif" }}>🎞️ Reel-Builder (Multi-Clip)</h2>
+              <h2 style={{ margin: "0 0 8px", fontSize: 17, color: C.forest, fontFamily: "'Playfair Display', serif" }}>🎞️ reelbuilder (Multi-Clip)</h2>
               <p style={{ fontSize: 12, color: C.stone, margin: "0 0 16px" }}>Gib ein Thema ein — die KI plant 3 Szenen die du anpassen und verfeinern kannst.</p>
               <input type="text" value={reelTheme} onChange={e => setReelTheme(e.target.value)} placeholder="z.B. Schweizer Alpen-Qualitaet trifft Discounter-Preis" style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #81C78444", fontSize: 14, marginBottom: 12, boxSizing: "border-box" as const }} />
               <button onClick={planScenes} disabled={buildingReel || !reelTheme.trim()} style={btn("linear-gradient(135deg, #1B5E20, #4CAF50)")}>{buildingReel ? "KI plant Szenen..." : "🎬 Szenen planen lassen"}</button>
