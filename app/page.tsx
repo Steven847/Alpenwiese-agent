@@ -238,4 +238,7 @@ export default function Dashboard() {
                 <img src={imagePreview} alt="Generated" style={{
                   maxWidth: "100%", borderRadius: 12, border: `2px solid ${C.alpine}44`,
                 }} />
-              </div>
+                  </div>
+  );
+}
+
