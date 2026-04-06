@@ -1,5 +1,7 @@
 // lib/gemini.ts — Google Gemini API Integration (Images + Videos)
-// CORRECTED: Uses proper model names and imageConfig parameters
+// Images: Nano Banana 2 (gemini-3.1-flash-image-preview)
+// Videos: Veo 2 / Veo 3.1 (predictLongRunning endpoint)
+// Text: Gemini 2.5 Flash
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -53,7 +55,6 @@ export async function generateImage(prompt: string, options?: {
     throw new Error(`Gemini API error: ${data.error.message}`);
   }
 
-  // Extract image from response
   const parts = data.candidates?.[0]?.content?.parts || [];
   const imagePart = parts.find(
     (p: any) => p.inlineData?.mimeType?.startsWith("image/")
@@ -75,23 +76,32 @@ export async function generateImage(prompt: string, options?: {
 // ─── VIDEO GENERATION (Veo 2 / Veo 3.1) ───
 
 export async function generateVideo(prompt: string, options?: {
-  model?: "veo-2.0-generate-001" | "veo-3.1-generate-preview";
+  model?: "veo-2.0-generate-001" | "veo-3.1-generate-preview" | "veo-3.1-fast-generate-preview";
   aspectRatio?: "16:9" | "9:16";
   durationSeconds?: 4 | 6 | 8;
+  imageBase64?: string;
+  imageMimeType?: string;
 }) {
   const apiKey = getApiKey();
   const model = options?.model || "veo-2.0-generate-001";
 
+  const instance: any = {
+    prompt: `${prompt}. 
+      Cinematic quality, smooth camera movements.
+      Brand aesthetic: Swiss Alps, green meadows, clean professional look.
+      NO smoking, NO drug imagery, NO cannabis leaves.
+      Professional, premium, nature-focused.`,
+  };
+
+  if (options?.imageBase64 && options?.imageMimeType) {
+    instance.image = {
+      bytesBase64Encoded: options.imageBase64,
+      mimeType: options.imageMimeType,
+    };
+  }
+
   const requestBody = {
-    instances: [
-      {
-        prompt: `${prompt}. 
-          Cinematic quality, smooth camera movements.
-          Brand aesthetic: Swiss Alps, green meadows, clean medical look.
-          NO smoking, NO drug imagery, NO cannabis leaves.
-          Professional, premium, nature-focused.`,
-      },
-    ],
+    instances: [instance],
     parameters: {
       aspectRatio: options?.aspectRatio || "9:16",
       sampleCount: 1,
@@ -100,10 +110,13 @@ export async function generateVideo(prompt: string, options?: {
   };
 
   const res = await fetch(
-    `${GEMINI_API_BASE}/models/${model}:predict?key=${apiKey}`,
+    `${GEMINI_API_BASE}/models/${model}:predictLongRunning`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify(requestBody),
     }
   );
@@ -114,44 +127,53 @@ export async function generateVideo(prompt: string, options?: {
     throw new Error(`Veo API error: ${data.error.message}`);
   }
 
-  // Veo returns an operation for async processing
   if (data.name) {
     return await pollVideoOperation(data.name, apiKey);
   }
 
-  const videoPart = data.predictions?.[0];
-  if (!videoPart) {
-    throw new Error("No video generated.");
-  }
-
-  return {
-    base64: videoPart.bytesBase64Encoded,
-    mimeType: videoPart.mimeType || "video/mp4",
-    url: videoPart.uri,
-  };
+  throw new Error("Unexpected Veo response: " + JSON.stringify(data).slice(0, 200));
 }
 
-async function pollVideoOperation(operationName: string, apiKey: string, maxWaitSec = 120) {
+async function pollVideoOperation(operationName: string, apiKey: string, maxWaitSec = 180) {
   const startTime = Date.now();
   while (Date.now() - startTime < maxWaitSec * 1000) {
     const res = await fetch(
-      `${GEMINI_API_BASE}/${operationName}?key=${apiKey}`
+      `${GEMINI_API_BASE}/${operationName}`,
+      {
+        headers: { "x-goog-api-key": apiKey },
+      }
     );
     const data = await res.json();
 
     if (data.done) {
-      const video = data.response?.predictions?.[0];
-      if (!video) throw new Error("Video operation completed but no video returned");
+      const videos = data.response?.generatedSamples || data.response?.predictions || [];
+      if (videos.length === 0) {
+        const video = data.response?.video;
+        if (video) {
+          return {
+            base64: video.bytesBase64Encoded || null,
+            mimeType: video.mimeType || "video/mp4",
+            url: video.uri || null,
+          };
+        }
+        throw new Error("Video done but empty: " + JSON.stringify(data.response).slice(0, 300));
+      }
+
+      const video = videos[0];
       return {
-        base64: video.bytesBase64Encoded,
-        mimeType: video.mimeType || "video/mp4",
-        url: video.uri,
+        base64: video.bytesBase64Encoded || video.video?.bytesBase64Encoded || null,
+        mimeType: video.mimeType || video.video?.mimeType || "video/mp4",
+        url: video.uri || video.video?.uri || null,
       };
+    }
+
+    if (data.error) {
+      throw new Error(`Video failed: ${data.error.message}`);
     }
 
     await new Promise((r) => setTimeout(r, 5000));
   }
-  throw new Error("Video generation timeout");
+  throw new Error("Video timeout after " + maxWaitSec + "s");
 }
 
 // ─── TEXT GENERATION (for captions) ───
