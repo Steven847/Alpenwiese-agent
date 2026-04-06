@@ -254,11 +254,47 @@ export default function Dashboard() {
         {activeTab === "image" && (
           <div style={card}>
             <h2 style={{ margin: "0 0 12px", fontSize: 17, color: C.forest, fontFamily: "'Playfair Display', serif" }}>📸 Bild-Generator (Nano Banana 2)</h2>
-            <p style={{ fontSize: 12, color: C.stone, margin: "0 0 16px" }}>Generiere Instagram-Grafiken mit der Google Gemini API.</p>
-            <input type="text" value={topic} onChange={e => setTopic(e.target.value)} placeholder="Beschreibe das Bild..." style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #81C78444", fontSize: 14, marginBottom: 12, boxSizing: "border-box" as const }} />
+            <p style={{ fontSize: 12, color: C.stone, margin: "0 0 16px" }}>Fotorealistische Bilder mit Alpenwiese-Logo und Brokkoli-Element.</p>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, fontWeight: 600, color: C.stone, textTransform: "uppercase" as const }}>Bild-Beschreibung</label>
+              <input type="text" value={topic} onChange={e => setTopic(e.target.value)} placeholder="z.B. Schweizer Apotheke mit Bergpanorama, Produkt auf Holztisch..." style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #81C78444", fontSize: 14, marginTop: 4, boxSizing: "border-box" as const }} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, fontWeight: 600, color: C.stone, textTransform: "uppercase" as const }}>Format</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                {[{ v: "1:1", l: "Quadrat (Feed)" }, { v: "9:16", l: "Hochformat (Story/Reel)" }, { v: "16:9", l: "Querformat" }].map(f => (
+                  <button key={f.v} onClick={() => setTopic(topic)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #81C78444", background: "#fff", fontSize: 11, cursor: "pointer", color: C.forest }}>{f.l}</button>
+                ))}
+              </div>
+            </div>
             <button onClick={generateImage} disabled={loading} style={btn("linear-gradient(135deg, #FF9800, #F57C00)")}>{loading ? "Nano Banana 2 generiert..." : "📸 Bild generieren"}</button>
             {status && <div style={statusBox(status)!}>{status}</div>}
-            {imagePreview && <img src={imagePreview} alt="Generated" style={{ width: "100%", marginTop: 16, borderRadius: 12 }} />}
+            {imagePreview && (
+              <div style={{ marginTop: 16 }}>
+                <img src={imagePreview} alt="Generated" style={{ width: "100%", borderRadius: 12, border: "2px solid #81C78444" }} />
+                <div style={{ marginTop: 10, padding: 12, borderRadius: 10, background: "#FFF8E1", border: "1px solid #FFD54F44" }}>
+                  <label style={{ fontSize: 10, fontWeight: 600, color: "#F57F17", textTransform: "uppercase" as const }}>Bild verfeinern</label>
+                  <input type="text" value={result && !result.startsWith("http") ? "" : (result || "")} onChange={e => setResult(e.target.value)} placeholder="z.B. Mehr Sonnenlicht, Brokkoli grösser, Logo oben rechts, weniger KI-Look..." style={{ width: "100%", padding: 8, borderRadius: 8, border: "1px solid #FFD54F66", fontSize: 12, marginTop: 4, boxSizing: "border-box" as const }} />
+                  <button onClick={async () => {
+                    if (!result?.trim()) return;
+                    setLoading(true); setStatus("Verfeinere Bild...");
+                    try {
+                      const res = await fetch("/api/image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "refine", originalPrompt: topic, feedback: result }) });
+                      const data = await res.json();
+                      if (data.success) { setImagePreview(data.image.dataUrl); setTopic(data.improvedPrompt || topic); setResult(""); setStatus("Bild verfeinert!"); }
+                      else { setStatus("Fehler: " + data.error); }
+                    } catch (e: any) { setStatus("Fehler: " + e.message); }
+                    setLoading(false);
+                  }} disabled={loading} style={{ marginTop: 6, padding: "8px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #FF9800, #F57C00)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", width: "100%" }}>
+                    Bild mit Feedback verfeinern
+                  </button>
+                </div>
+                <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+                  <a href={imagePreview} download="alpenwiese-post.png" style={{ flex: 1, padding: "8px 14px", borderRadius: 8, background: "#1B5E20", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", textAlign: "center" as const }}>Bild herunterladen</a>
+                  <button onClick={generateImage} style={{ flex: 1, padding: "8px 14px", borderRadius: 8, border: "1px solid #81C784", background: "#fff", fontSize: 11, cursor: "pointer", color: C.forest }}>Komplett neu generieren</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
