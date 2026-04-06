@@ -163,7 +163,6 @@ export default function Dashboard() {
               🌿 Content Generator
             </h2>
 
-            {/* Content Type */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: C.stone,
                 textTransform: "uppercase", letterSpacing: 1 }}>Content-Typ</label>
@@ -185,7 +184,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Tone */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: C.stone,
                 textTransform: "uppercase", letterSpacing: 1 }}>Tonalität</label>
@@ -202,7 +200,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Topic */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: C.stone,
                 textTransform: "uppercase", letterSpacing: 1 }}>Thema</label>
@@ -217,7 +214,6 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Generate Buttons */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button onClick={generate} disabled={loading} style={{
                 flex: 1, padding: 14, borderRadius: 12, border: "none",
@@ -236,7 +232,6 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {/* Status */}
             {status && (
               <div style={{
                 marginTop: 12, padding: "8px 14px", borderRadius: 10,
@@ -248,7 +243,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Image Preview */}
             {imagePreview && (
               <div style={{ marginTop: 16, textAlign: "center" }}>
                 <img src={imagePreview} alt="Generated" style={{
@@ -258,8 +252,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Result */}
-            {result && (
+            {result && activeTab === "generate" && (
               <div style={{
                 marginTop: 16, padding: 20, borderRadius: 12,
                 background: `linear-gradient(135deg, ${C.snow}, #fff)`,
@@ -322,7 +315,8 @@ export default function Dashboard() {
             </button>
             {status && (
               <div style={{ marginTop: 12, padding: 10, borderRadius: 10,
-                background: C.snow, fontSize: 12, color: C.forest }}>
+                background: status.includes("Fehler") ? "#FFF3E0" : C.snow,
+                fontSize: 12, color: status.includes("Fehler") ? "#E65100" : C.forest }}>
                 {status}
               </div>
             )}
@@ -357,7 +351,8 @@ export default function Dashboard() {
             />
             <button onClick={async () => {
               setLoading(true);
-              setStatus("Generiere Video mit Veo 2... (kann bis zu 2 Min dauern)");
+              setStatus("Generiere Video mit Veo 2... (1-3 Min)");
+              setResult(null);
               try {
                 const res = await fetch("/api/video", {
                   method: "POST",
@@ -365,7 +360,12 @@ export default function Dashboard() {
                   body: JSON.stringify({ prompt: topic, aspectRatio: "9:16", duration: 8 }),
                 });
                 const data = await res.json();
-                setStatus(data.success ? "Video generiert! 🎬" : "Fehler: " + data.error);
+                if (data.success && data.video?.url) {
+                  setResult(data.video.url);
+                  setStatus("Video generiert! 🎬");
+                } else {
+                  setStatus("Fehler: " + (data.error || "Kein Video"));
+                }
               } catch (e: any) { setStatus("Fehler: " + e.message); }
               setLoading(false);
             }} disabled={loading} style={{
@@ -373,12 +373,45 @@ export default function Dashboard() {
               background: "linear-gradient(135deg, #9C27B0, #7B1FA2)",
               color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
             }}>
-              {loading ? "Veo generiert..." : "🎬 Reel generieren"}
+              {loading ? "Veo generiert... (1-3 Min)" : "🎬 Reel generieren"}
             </button>
             {status && (
               <div style={{ marginTop: 12, padding: 10, borderRadius: 10,
-                background: C.snow, fontSize: 12, color: C.forest }}>
+                background: status.includes("Fehler") ? "#FFF3E0" : C.snow,
+                fontSize: 12, color: status.includes("Fehler") ? "#E65100" : C.forest }}>
                 {status}
+              </div>
+            )}
+            {result && activeTab === "video" && result.startsWith("http") && (
+              <div style={{ marginTop: 16 }}>
+                <video
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                  style={{
+                    width: "100%", maxWidth: 400, borderRadius: 12,
+                    border: `2px solid ${C.alpine}44`, display: "block",
+                    margin: "0 auto",
+                  }}
+                >
+                  <source src={result} type="video/mp4" />
+                </video>
+                <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                  <a href={result} target="_blank" rel="noopener noreferrer" style={{
+                    padding: "8px 16px", borderRadius: 8, border: "none",
+                    background: "linear-gradient(135deg, #9C27B0, #7B1FA2)",
+                    color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none",
+                  }}>
+                    Video herunterladen
+                  </a>
+                  <button onClick={() => navigator.clipboard?.writeText(result)} style={{
+                    padding: "8px 16px", borderRadius: 8, border: `1px solid ${C.alpine}`,
+                    background: "#fff", fontSize: 12, cursor: "pointer", color: C.forest,
+                  }}>
+                    URL kopieren
+                  </button>
+                </div>
               </div>
             )}
           </div>
