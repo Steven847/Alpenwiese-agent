@@ -146,25 +146,39 @@ async function pollVideoOperation(operationName: string, apiKey: string, maxWait
     const data = await res.json();
 
     if (data.done) {
-      const videos = data.response?.generatedSamples || data.response?.predictions || [];
-      if (videos.length === 0) {
-        const video = data.response?.video;
-        if (video) {
-          return {
-            base64: video.bytesBase64Encoded || null,
-            mimeType: video.mimeType || "video/mp4",
-            url: video.uri || null,
-          };
-        }
-        throw new Error("Video done but empty: " + JSON.stringify(data.response).slice(0, 300));
+      // Handle Veo generateVideoResponse format
+      const gvr = data.response?.generateVideoResponse;
+      if (gvr?.generatedSamples?.length > 0) {
+        const sample = gvr.generatedSamples[0];
+        return {
+          base64: null,
+          mimeType: "video/mp4",
+          url: sample.video?.uri || null,
+        };
       }
 
-      const video = videos[0];
-      return {
-        base64: video.bytesBase64Encoded || video.video?.bytesBase64Encoded || null,
-        mimeType: video.mimeType || video.video?.mimeType || "video/mp4",
-        url: video.uri || video.video?.uri || null,
-      };
+      // Handle alternative response formats
+      const videos = data.response?.generatedSamples || data.response?.predictions || [];
+      if (videos.length > 0) {
+        const video = videos[0];
+        return {
+          base64: video.bytesBase64Encoded || null,
+          mimeType: video.mimeType || "video/mp4",
+          url: video.uri || video.video?.uri || null,
+        };
+      }
+
+      // Handle direct video response
+      const video = data.response?.video;
+      if (video) {
+        return {
+          base64: video.bytesBase64Encoded || null,
+          mimeType: video.mimeType || "video/mp4",
+          url: video.uri || null,
+        };
+      }
+
+      throw new Error("Video done but empty: " + JSON.stringify(data.response).slice(0, 300));
     }
 
     if (data.error) {
