@@ -1,4 +1,4 @@
-/ app/api/reel-builder/route.ts — Multi-Clip Reel Builder with Scene Planning & Refinement
+// app/api/reel-builder/route.ts — Multi-Clip Reel Builder with Scene Planning & Refinement
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText, generateVideo } from "@/lib/gemini";
