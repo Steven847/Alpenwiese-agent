@@ -1,4 +1,4 @@
-/ app/page.tsx — Alpenwiese Social Media Agent Dashboard v3
+// app/page.tsx — Alpenwiese Social Media Agent Dashboard v3
 
 "use client";
 
@@ -29,6 +29,7 @@ export default function Dashboard() {
   // Wochenplan
   const [weekPlan, setWeekPlan] = useState<DayPlan[]>([]);
   const [planLoading, setPlanLoading] = useState(false);
+  const [planProgress, setPlanProgress] = useState("");
   // Engagement
   const [hashtagSearch, setHashtagSearch] = useState("");
   const [hashtagResults, setHashtagResults] = useState<any[]>([]);
@@ -89,13 +90,44 @@ export default function Dashboard() {
   };
   // Wochenplan
   const generateWeekPlan = async () => {
-    setPlanLoading(true); setStatus("Generiere Wochenplan...");
-    try { const res = await fetch("/api/wochenplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_week" }) }); const data = await res.json(); if (data.success) { setWeekPlan(data.plan); setStatus("Wochenplan erstellt!"); } else { setStatus("Fehler: " + data.error); } } catch (e: any) { setStatus("Fehler: " + e.message); }
+    setPlanLoading(true); setWeekPlan([]); setPlanProgress("Schritt 1/3: Generiere Captions fuer alle 7 Tage..."); setStatus(null);
+    try {
+      const res = await fetch("/api/wochenplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_week" }) });
+      const data = await res.json();
+      if (data.success && data.plan) {
+        setPlanProgress("Schritt 2/3: Captions fertig! Lade Wochenplan...");
+        setWeekPlan(data.plan);
+        // Show each day loading in sequence
+        for (let i = 0; i < data.plan.length; i++) {
+          setPlanProgress("Schritt 3/3: Pruefe " + data.plan[i].day + " (" + (i+1) + "/7)...");
+          await new Promise(r => setTimeout(r, 300));
+        }
+        setPlanProgress("");
+        setStatus("Wochenplan mit " + data.plan.length + " Tagen erstellt! Jetzt Captions pruefen und Bilder generieren.");
+      } else {
+        setPlanProgress("");
+        setStatus("Fehler: " + (data.error || "Planung fehlgeschlagen"));
+      }
+    } catch (e: any) { setPlanProgress(""); setStatus("Fehler: " + e.message); }
     setPlanLoading(false);
   };
   const generateDayImage = async (index: number) => {
-    const day = weekPlan[index]; if (!day) return; setStatus("Generiere Bild fuer " + day.day + "...");
+    const day = weekPlan[index]; if (!day) return;
+    setPlanProgress("Generiere Bild fuer " + day.day + "...");
+    setStatus("📸 " + day.day + ": Bild wird generiert...");
     try { const res = await fetch("/api/wochenplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_day_image", imagePrompt: day.imagePrompt }) }); const data = await res.json(); if (data.success) { const u = [...weekPlan]; u[index] = { ...u[index], imageUrl: data.image.dataUrl }; setWeekPlan(u); setStatus("Bild fuer " + day.day + " generiert!"); } else { setStatus("Fehler: " + data.error); } } catch (e: any) { setStatus("Fehler: " + e.message); }
+    setPlanProgress("");
+  };
+  const generateAllImages = async () => {
+    for (let i = 0; i < weekPlan.length; i++) {
+      if (!weekPlan[i].imageUrl) {
+        setPlanProgress("Generiere Bild " + (i+1) + "/" + weekPlan.length + " (" + weekPlan[i].day + ")...");
+        await generateDayImage(i);
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    setPlanProgress("");
+    setStatus("Alle Bilder generiert!");
   };
   const regenerateCaption = async (index: number) => {
     const day = weekPlan[index]; if (!day) return; setStatus("Generiere neue Caption fuer " + day.day + "...");
@@ -247,7 +279,19 @@ export default function Dashboard() {
             <div style={{ ...card, boxShadow: "0 0 20px #81C78444" }}>
               <h2 style={{ margin: "0 0 8px", fontSize: 17, color: C.forest }}>📅 Wochenplan</h2>
               <p style={{ fontSize: 12, color: C.stone, margin: "0 0 12px" }}>KI erstellt 7 Tage Content. Bilder generieren, dann als CSV fuer Meta Business Suite exportieren.</p>
-              <button onClick={generateWeekPlan} disabled={planLoading} style={btn("linear-gradient(135deg, #1B5E20, #4CAF50)")}>{planLoading ? "Generiert Wochenplan..." : "📅 Wochenplan generieren"}</button>
+              <button onClick={generateWeekPlan} disabled={planLoading} style={btn("linear-gradient(135deg, #1B5E20, #4CAF50)")}>{planLoading ? "Generiert..." : "📅 Wochenplan generieren"}</button>
+              {planProgress && (
+                <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: "linear-gradient(135deg, #E8F5E9, #FFF8E1)", border: "1px solid #81C78444" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: 10, border: "3px solid #4CAF50", borderTopColor: "transparent", animation: "spin 1s linear infinite" }} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.forest }}>{planProgress}</span>
+                  </div>
+                  <div style={{ width: "100%", height: 6, borderRadius: 3, background: "#81C78433", overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg, #1B5E20, #4CAF50)", width: planProgress.includes("1/3") ? "33%" : planProgress.includes("2/3") ? "66%" : planProgress.includes("3/3") ? "90%" : "10%", transition: "width 0.5s ease" }} />
+                  </div>
+                </div>
+              )}
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
               {status && <div style={stBox(status)!}>{status}</div>}
             </div>
             {weekPlan.map((day, i) => (
@@ -280,8 +324,17 @@ export default function Dashboard() {
             ))}
             {weekPlan.length > 0 && (
               <div style={card}>
-                <button onClick={exportCSV} style={btn("linear-gradient(135deg, #0050AA, #1565C0)")}>📋 CSV fuer Meta Business Suite exportieren</button>
-                <p style={{ fontSize: 10, color: C.stone, marginTop: 8, textAlign: "center" as const }}>Importiere die CSV in Meta Business Suite unter "Planer" um Posts vorzuplanen.</p>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <button onClick={generateAllImages} disabled={planLoading} style={{ ...btn("linear-gradient(135deg, #FF9800, #F57C00)"), flex: 1 }}>📸 Alle Bilder generieren</button>
+                  <button onClick={exportCSV} style={{ ...btn("linear-gradient(135deg, #0050AA, #1565C0)"), width: "auto", padding: "14px 16px" }}>📋 CSV</button>
+                </div>
+                {planProgress && (
+                  <div style={{ padding: 10, borderRadius: 8, background: "#FFF8E1", border: "1px solid #FFD54F44", fontSize: 12, color: "#E65100", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 8, border: "2px solid #FF9800", borderTopColor: "transparent", animation: "spin 1s linear infinite", flexShrink: 0 }} />
+                    {planProgress}
+                  </div>
+                )}
+                <p style={{ fontSize: 10, color: C.stone, marginTop: 8, textAlign: "center" as const }}>Tipp: Bilder + Captions in Meta Business Suite unter "Planer" vorplanen.</p>
               </div>
             )}
           </div>
