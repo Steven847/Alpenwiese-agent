@@ -111,23 +111,39 @@ export default function Dashboard() {
     } catch (e: any) { setPlanProgress(""); setStatus("Fehler: " + e.message); }
     setPlanLoading(false);
   };
-  const generateDayImage = async (index: number) => {
+  const generateDayMedia = async (index: number) => {
     const day = weekPlan[index]; if (!day) return;
-    setPlanProgress("Generiere Bild fuer " + day.day + "...");
-    setStatus("📸 " + day.day + ": Bild wird generiert...");
-    try { const res = await fetch("/api/wochenplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_day_image", imagePrompt: day.imagePrompt }) }); const data = await res.json(); if (data.success) { const u = [...weekPlan]; u[index] = { ...u[index], imageUrl: data.image.dataUrl }; setWeekPlan(u); setStatus("Bild fuer " + day.day + " generiert!"); } else { setStatus("Fehler: " + data.error); } } catch (e: any) { setStatus("Fehler: " + e.message); }
+    const isVideo = day.type === "reel" || day.type === "story";
+    setPlanProgress(isVideo ? "Generiere Video fuer " + day.day + "... (1-3 Min)" : "Generiere Bild fuer " + day.day + "...");
+    setStatus(isVideo ? "🎬 " + day.day + ": Video wird generiert..." : "📸 " + day.day + ": Bild wird generiert...");
+    try {
+      if (isVideo) {
+        const res = await fetch("/api/video", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: day.imagePrompt, aspectRatio: "9:16", duration: 8 }) });
+        const data = await res.json();
+        if (data.success && data.video?.url) {
+          const u = [...weekPlan]; u[index] = { ...u[index], imageUrl: "VIDEO:" + data.video.url }; setWeekPlan(u);
+          setStatus("Video fuer " + day.day + " generiert!");
+        } else { setStatus("Fehler: " + (data.error || "Kein Video")); }
+      } else {
+        const res = await fetch("/api/wochenplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_day_image", imagePrompt: day.imagePrompt }) });
+        const data = await res.json();
+        if (data.success) { const u = [...weekPlan]; u[index] = { ...u[index], imageUrl: data.image.dataUrl }; setWeekPlan(u); setStatus("Bild fuer " + day.day + " generiert!"); }
+        else { setStatus("Fehler: " + data.error); }
+      }
+    } catch (e: any) { setStatus("Fehler: " + e.message); }
     setPlanProgress("");
   };
-  const generateAllImages = async () => {
+  const generateAllMedia = async () => {
     for (let i = 0; i < weekPlan.length; i++) {
       if (!weekPlan[i].imageUrl) {
-        setPlanProgress("Generiere Bild " + (i+1) + "/" + weekPlan.length + " (" + weekPlan[i].day + ")...");
-        await generateDayImage(i);
+        const isVideo = weekPlan[i].type === "reel" || weekPlan[i].type === "story";
+        setPlanProgress("Generiere " + (isVideo ? "Video" : "Bild") + " " + (i+1) + "/" + weekPlan.length + " (" + weekPlan[i].day + ")...");
+        await generateDayMedia(i);
         await new Promise(r => setTimeout(r, 1000));
       }
     }
     setPlanProgress("");
-    setStatus("Alle Bilder generiert!");
+    setStatus("Alle Medien generiert!");
   };
   const regenerateCaption = async (index: number) => {
     const day = weekPlan[index]; if (!day) return; setStatus("Generiere neue Caption fuer " + day.day + "...");
@@ -314,18 +330,26 @@ export default function Dashboard() {
                   </div>
                   <pre style={{ whiteSpace: "pre-wrap" as const, fontSize: 11, lineHeight: 1.5, color: C.bark, margin: 0 }}>{day.caption}</pre>
                 </div>
-                {day.imageUrl && <img src={day.imageUrl} alt="" style={{ width: "100%", borderRadius: 10, marginBottom: 8, border: "1px solid #81C78444" }} />}
+                {day.imageUrl && day.imageUrl.startsWith("VIDEO:") && (
+                  <div style={{ marginBottom: 8 }}>
+                    <video controls playsInline style={{ width: "100%", maxWidth: 300, borderRadius: 10, border: "2px solid #81C78444", display: "block", margin: "0 auto" }}>
+                      <source src={videoProxy(day.imageUrl.replace("VIDEO:", ""))} type="video/mp4" />
+                    </video>
+                  </div>
+                )}
+                {day.imageUrl && !day.imageUrl.startsWith("VIDEO:") && <img src={day.imageUrl} alt="" style={{ width: "100%", borderRadius: 10, marginBottom: 8, border: "1px solid #81C78444" }} />}
                 <div style={{ display: "flex", gap: 6 }}>
-                  {!day.imageUrl && <button onClick={() => generateDayImage(i)} style={{ ...btn("linear-gradient(135deg, #FF9800, #F57C00)"), fontSize: 12, padding: 10, flex: 1 }}>📸 Bild generieren</button>}
-                  {day.imageUrl && <a href={day.imageUrl} download={"alpenwiese-" + day.day.toLowerCase() + ".png"} style={{ flex: 1, padding: "8px 14px", borderRadius: 8, background: "#1B5E20", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", textAlign: "center" as const }}>Bild herunterladen</a>}
-                  {day.imageUrl && <button onClick={() => generateDayImage(i)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #81C784", background: "#fff", fontSize: 11, cursor: "pointer", color: C.forest }}>Neues Bild</button>}
+                  {!day.imageUrl && <button onClick={() => generateDayMedia(i)} style={{ ...btn(day.type === "reel" || day.type === "story" ? "linear-gradient(135deg, #9C27B0, #7B1FA2)" : "linear-gradient(135deg, #FF9800, #F57C00)"), fontSize: 12, padding: 10, flex: 1 }}>{day.type === "reel" ? "🎬 Reel generieren" : day.type === "story" ? "📱 Story-Video generieren" : "📸 Bild generieren"}</button>}
+                  {day.imageUrl && day.imageUrl.startsWith("VIDEO:") && <a href={videoProxy(day.imageUrl.replace("VIDEO:", ""))} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: "8px 14px", borderRadius: 8, background: "#9C27B0", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", textAlign: "center" as const }}>Video herunterladen</a>}
+                  {day.imageUrl && !day.imageUrl.startsWith("VIDEO:") && <a href={day.imageUrl} download={"alpenwiese-" + day.day.toLowerCase() + ".png"} style={{ flex: 1, padding: "8px 14px", borderRadius: 8, background: "#1B5E20", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", textAlign: "center" as const }}>Bild herunterladen</a>}
+                  {day.imageUrl && <button onClick={() => { const u = [...weekPlan]; u[i] = { ...u[i], imageUrl: undefined }; setWeekPlan(u); }} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #81C784", background: "#fff", fontSize: 11, cursor: "pointer", color: C.forest }}>Neu</button>}
                 </div>
               </div>
             ))}
             {weekPlan.length > 0 && (
               <div style={card}>
                 <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  <button onClick={generateAllImages} disabled={planLoading} style={{ ...btn("linear-gradient(135deg, #FF9800, #F57C00)"), flex: 1 }}>📸 Alle Bilder generieren</button>
+                  <button onClick={generateAllMedia} disabled={planLoading} style={{ ...btn("linear-gradient(135deg, #FF9800, #F57C00)"), flex: 1 }}>📸🎬 Alle Medien generieren</button>
                   <button onClick={exportCSV} style={{ ...btn("linear-gradient(135deg, #0050AA, #1565C0)"), width: "auto", padding: "14px 16px" }}>📋 CSV</button>
                 </div>
                 {planProgress && (
