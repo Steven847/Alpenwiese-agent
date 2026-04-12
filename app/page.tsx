@@ -1,4 +1,4 @@
-// app/page.tsx — Alpenwiese Social Media Agent Dashboard v3
+/ app/page.tsx — Alpenwiese Social Media Agent Dashboard v3
 
 "use client";
 
@@ -96,6 +96,10 @@ export default function Dashboard() {
   const generateDayImage = async (index: number) => {
     const day = weekPlan[index]; if (!day) return; setStatus("Generiere Bild fuer " + day.day + "...");
     try { const res = await fetch("/api/wochenplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "generate_day_image", imagePrompt: day.imagePrompt }) }); const data = await res.json(); if (data.success) { const u = [...weekPlan]; u[index] = { ...u[index], imageUrl: data.image.dataUrl }; setWeekPlan(u); setStatus("Bild fuer " + day.day + " generiert!"); } else { setStatus("Fehler: " + data.error); } } catch (e: any) { setStatus("Fehler: " + e.message); }
+  };
+  const regenerateCaption = async (index: number) => {
+    const day = weekPlan[index]; if (!day) return; setStatus("Generiere neue Caption fuer " + day.day + "...");
+    try { const res = await fetch("/api/wochenplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "regenerate_caption", day: day.day, theme: day.theme, currentCaption: day.caption }) }); const data = await res.json(); if (data.success) { const u = [...weekPlan]; u[index] = { ...u[index], caption: data.caption }; setWeekPlan(u); setStatus("Neue Caption fuer " + day.day + "!"); } else { setStatus("Fehler: " + data.error); } } catch (e: any) { setStatus("Fehler: " + e.message); }
   };
   const exportCSV = async () => {
     try { const res = await fetch("/api/wochenplan", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "export_csv", plan: weekPlan }) }); const data = await res.json(); if (data.success) { const blob = new Blob([data.csv], { type: "text/csv" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "alpenwiese-wochenplan.csv"; a.click(); URL.revokeObjectURL(url); setStatus("CSV exportiert!"); } } catch (e: any) { setStatus("Fehler: " + e.message); }
@@ -250,15 +254,28 @@ export default function Dashboard() {
               <div key={i} style={{ ...card, border: day.imageUrl ? "2px solid #4CAF50" : "1px solid #81C78433" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <h3 style={{ margin: 0, fontSize: 14, color: C.forest }}>{day.day}</h3>
-                  <span style={{ padding: "2px 10px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: day.type === "reel" ? "#9C27B022" : "#FF980022", color: day.type === "reel" ? "#7B1FA2" : "#E65100" }}>{day.type}</span>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    <span style={{ padding: "2px 10px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: day.type === "reel" ? "#9C27B022" : day.type === "story" ? "#2196F322" : "#FF980022", color: day.type === "reel" ? "#7B1FA2" : day.type === "story" ? "#1565C0" : "#E65100" }}>{day.type}</span>
+                    <span style={{ fontSize: 10, color: C.stone }}>{day.time}</span>
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.stone, marginBottom: 6 }}>{day.theme}</div>
-                <div style={{ fontSize: 11, color: C.stone, marginBottom: 4 }}>Posting-Zeit: {day.time}</div>
-                <pre style={{ whiteSpace: "pre-wrap" as const, fontSize: 11, lineHeight: 1.5, color: C.bark, margin: "8px 0", padding: 10, borderRadius: 8, background: C.snow, border: "1px solid #81C78422" }}>{day.caption}</pre>
-                <button onClick={() => navigator.clipboard?.writeText(day.caption)} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #81C784", background: "#fff", fontSize: 10, cursor: "pointer", color: C.forest, marginBottom: 8 }}>Caption kopieren</button>
-                {day.imageUrl && <img src={day.imageUrl} alt="" style={{ width: "100%", borderRadius: 10, marginTop: 8, border: "1px solid #81C78444" }} />}
-                {!day.imageUrl && <button onClick={() => generateDayImage(i)} style={{ ...btn("linear-gradient(135deg, #FF9800, #F57C00)"), fontSize: 12, padding: 10 }}>📸 Bild generieren</button>}
-                {day.imageUrl && <a href={day.imageUrl} download={"alpenwiese-" + day.day + ".png"} style={{ display: "block", marginTop: 6, padding: "6px 12px", borderRadius: 8, background: "#1B5E20", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", textAlign: "center" as const }}>Bild herunterladen</a>}
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.stone, marginBottom: 8 }}>{day.theme}</div>
+                <div style={{ padding: 12, borderRadius: 10, background: C.snow, border: "1px solid #81C78422", marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: C.forest, textTransform: "uppercase" as const }}>Caption</span>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => navigator.clipboard?.writeText(day.caption)} style={{ padding: "2px 8px", borderRadius: 6, border: "1px solid #81C784", background: "#fff", fontSize: 9, cursor: "pointer", color: C.forest }}>Kopieren</button>
+                      <button onClick={() => regenerateCaption(i)} style={{ padding: "2px 8px", borderRadius: 6, border: "none", background: "#FF9800", fontSize: 9, cursor: "pointer", color: "#fff", fontWeight: 700 }}>Neu</button>
+                    </div>
+                  </div>
+                  <pre style={{ whiteSpace: "pre-wrap" as const, fontSize: 11, lineHeight: 1.5, color: C.bark, margin: 0 }}>{day.caption}</pre>
+                </div>
+                {day.imageUrl && <img src={day.imageUrl} alt="" style={{ width: "100%", borderRadius: 10, marginBottom: 8, border: "1px solid #81C78444" }} />}
+                <div style={{ display: "flex", gap: 6 }}>
+                  {!day.imageUrl && <button onClick={() => generateDayImage(i)} style={{ ...btn("linear-gradient(135deg, #FF9800, #F57C00)"), fontSize: 12, padding: 10, flex: 1 }}>📸 Bild generieren</button>}
+                  {day.imageUrl && <a href={day.imageUrl} download={"alpenwiese-" + day.day.toLowerCase() + ".png"} style={{ flex: 1, padding: "8px 14px", borderRadius: 8, background: "#1B5E20", color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none", textAlign: "center" as const }}>Bild herunterladen</a>}
+                  {day.imageUrl && <button onClick={() => generateDayImage(i)} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #81C784", background: "#fff", fontSize: 11, cursor: "pointer", color: C.forest }}>Neues Bild</button>}
+                </div>
               </div>
             ))}
             {weekPlan.length > 0 && (
